@@ -100,12 +100,23 @@ function Thumbnailer:check_storyboard_async(callback)
                     self.state.thumbnail_size = {w=sb.width, h=sb.height}
                     if sb.fps then
                         self.state.thumbnail_count = math.floor(sb.fps * sb.duration)
-                        self.state.thumbnail_delta = sb.duration / self.state.thumbnail_count
                     else
                         -- estimate the count of thumbnails
                         self.state.thumbnail_delta = sb.fragments[1].duration / (self.state.storyboard.rows*self.state.storyboard.cols) -- first atlas is always full
                         self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
                     end
+
+                    local divisor = 1 -- only save every n-th thumbnail
+                    if thumbnailer_options.storyboard_max_thumbnail_count then
+                        while self.state.thumbnail_count / divisor > thumbnailer_options.storyboard_max_thumbnail_count do
+                            divisor = divisor + 1
+                        end
+                    end
+                    self.state.storyboard.divisor = divisor
+                    self.state.thumbnail_count = math.floor(self.state.thumbnail_count / divisor)
+                    self.state.thumbnail_delta = sb.duration / self.state.thumbnail_count
+
+
                     -- Prefill individual thumbnail states
                     self.state.thumbnails = {}
                     for i = 1, self.state.thumbnail_count do

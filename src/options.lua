@@ -121,6 +121,8 @@ local thumbnailer_options = {
 
     -- Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube
     storyboard_enable = true,
+    -- Max thumbnails for storyboards. It only skips processing some of the downloaded thumbnails and doesn't make it much faster
+    storyboard_max_thumbnail_count = 800,
 }
 
 read_options(thumbnailer_options, SCRIPT_NAME)

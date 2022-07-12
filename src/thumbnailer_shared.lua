@@ -26,7 +26,7 @@ local Thumbnailer = {
         worker_extra = {},
 
         -- Storyboard urls
-        storyboard_url = nil,
+        storyboard = nil,
     },
     -- Set in register_client
     worker_register_timeout = nil,
@@ -42,7 +42,7 @@ function Thumbnailer:clear_state()
     self.state.finished_thumbnails = 0
     self.state.thumbnails = {}
     self.state.worker_extra = {}
-    self.state.storyboard_url = nil
+    self.state.storyboard = nil
 end
 
 
@@ -91,13 +91,21 @@ function Thumbnailer:check_storyboard_async(callback)
         mp.command_native_async({name="subprocess", args=sb_cmd, capture_stdout=true}, function(success, sb_json)
             if success and sb_json.status == 0 then
                 local sb = utils.parse_json(sb_json.stdout)
-                if sb ~= nil and sb.duration and sb.width and sb.height and #sb.fragments > 1 then
-                    self.state.storyboard_url = sb.fragments
+                if sb ~= nil and sb.duration and sb.width and sb.height and sb.fragments and #sb.fragments > 0 then
+                    self.state.storyboard = {}
+                    self.state.storyboard.fragments = sb.fragments
+                    self.state.storyboard.fragment_base_url = sb.fragment_base_url
+                    self.state.storyboard.rows = sb.rows or 5
+                    self.state.storyboard.cols = sb.columns or 5
                     self.state.thumbnail_size = {w=sb.width, h=sb.height}
-                    -- estimate the count of thumbnails
-                    -- assume 5x5 atlas (sb0)
-                    self.state.thumbnail_delta = sb.fragments[1].duration / (5*5) -- first atlas is always full
-                    self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
+                    if sb.fps then
+                        self.state.thumbnail_count = math.floor(sb.fps * sb.duration)
+                        self.state.thumbnail_delta = sb.duration / self.state.thumbnail_count
+                    else
+                        -- estimate the count of thumbnails
+                        self.state.thumbnail_delta = sb.fragments[1].duration / (self.state.storyboard.rows*self.state.storyboard.cols) -- first atlas is always full
+                        self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
+                    end
                     -- Prefill individual thumbnail states
                     self.state.thumbnails = {}
                     for i = 1, self.state.thumbnail_count do

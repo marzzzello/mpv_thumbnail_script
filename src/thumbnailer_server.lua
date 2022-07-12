@@ -173,7 +173,7 @@ function do_worker_job(state_json_string, frames_json_string)
     local file_duration = mp.get_property_native("duration")
     local file_path = thumb_state.worker_input_path
 
-    if thumb_state.is_remote and thumb_state.storyboard_url == nil then
+    if thumb_state.is_remote and thumb_state.storyboard == nil then
         if (thumbnail_func == create_thumbnail_ffmpeg) then
             msg.warn("Thumbnailing remote path, falling back on mpv.")
         end
@@ -212,13 +212,16 @@ function do_worker_job(state_json_string, frames_json_string)
 
         if need_thumbnail_generation then
             local success
-            if thumb_state.storyboard_url ~= nil then
+            if thumb_state.storyboard ~= nil then
                 -- get atlas and then split it into thumbnails
-                local rows = 5
-                local cols = 5
+                local rows = thumb_state.storyboard.rows
+                local cols = thumb_state.storyboard.cols
                 local atlas_idx = math.floor(thumb_idx/(cols*rows))
                 local atlas_path = thumb_state.thumbnail_template:format(atlas_idx) .. ".atlas"
-                local url = thumb_state.storyboard_url[atlas_idx+1].url
+                local url = thumb_state.storyboard.fragments[atlas_idx+1].url
+                if url == nil then
+                    url = thumb_state.storyboard.fragment_base_url .. "/" .. thumb_state.storyboard.fragments[atlas_idx+1].path
+                end
                 local ret = thumbnail_func(url, 0, thumb_state.thumbnail_size, atlas_path, { no_scale=true })
                 success = check_output(ret, atlas_path, thumbnail_func == create_thumbnail_mpv)
                 if success then

@@ -99,18 +99,21 @@ function Thumbnailer:check_storyboard_async(callback)
                     self.state.storyboard.cols = sb.columns or 5
                     self.state.thumbnail_size = {w=sb.width, h=sb.height}
                     if sb.fps then
-                        self.state.thumbnail_count = math.floor(sb.fps * sb.duration)
+                        self.state.thumbnail_count = math.floor(sb.fps * sb.duration + 0.5) -- round
+                        -- hack: youtube always adds 1 black frame at the end...
+                        if sb.extractor == "youtube" then
+                            self.state.thumbnail_count = self.state.thumbnail_count - 1
+                        end
                     else
                         -- estimate the count of thumbnails
-                        self.state.thumbnail_delta = sb.fragments[1].duration / (self.state.storyboard.rows*self.state.storyboard.cols) -- first atlas is always full
+                        -- assume first atlas is always full
+                        self.state.thumbnail_delta = sb.fragments[1].duration / (self.state.storyboard.rows*self.state.storyboard.cols)
                         self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
                     end
 
                     local divisor = 1 -- only save every n-th thumbnail
                     if thumbnailer_options.storyboard_max_thumbnail_count then
-                        while self.state.thumbnail_count / divisor > thumbnailer_options.storyboard_max_thumbnail_count do
-                            divisor = divisor + 1
-                        end
+                        divisor = math.ceil(self.state.thumbnail_count / thumbnailer_options.storyboard_max_thumbnail_count)
                     end
                     self.state.storyboard.divisor = divisor
                     self.state.thumbnail_count = math.floor(self.state.thumbnail_count / divisor)

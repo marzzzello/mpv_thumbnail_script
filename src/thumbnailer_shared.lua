@@ -76,6 +76,17 @@ function Thumbnailer:on_video_change(params)
     if params ~= nil then
         if not self.state.ready then
             self:update_state()
+            self:check_storyboard_async(function()
+                local duration = mp.get_property_native("duration")
+                local max_duration = thumbnailer_options.autogenerate_max_duration
+
+                if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
+                    -- Notify if autogenerate is on and video is not too long
+                    if duration < max_duration or max_duration == 0 then
+                        self:start_worker_jobs()
+                    end
+                end
+            end)
         end
     end
 end
@@ -336,18 +347,7 @@ function Thumbnailer:register_client()
 
     -- Notify workers to generate thumbnails when video loads/changes
     mp.observe_property("video-dec-params", "native", function(name, params)
-        Thumbnailer:on_video_change(params)
-        self:check_storyboard_async(function()
-            local duration = mp.get_property_native("duration")
-            local max_duration = thumbnailer_options.autogenerate_max_duration
-
-            if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
-                -- Notify if autogenerate is on and video is not too long
-                if duration < max_duration or max_duration == 0 then
-                    self:start_worker_jobs()
-                end
-            end
-        end)
+        self:on_video_change(params)
     end)
 
     local thumb_script_key = not thumbnailer_options.disable_keybinds and "T" or nil

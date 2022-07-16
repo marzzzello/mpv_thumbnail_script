@@ -84,7 +84,7 @@ end
 function Thumbnailer:check_storyboard_async(callback)
     if thumbnailer_options.storyboard_enable and self.state.is_remote then
         msg.info("Trying to get storyboard info...")
-        local sb_cmd = {"yt-dlp", "--format", "sb0", "--dump-json",
+        local sb_cmd = {"yt-dlp", "--format", "sb0", "--dump-json", "--no-playlist",
                         "--extractor-args", "youtube:skip=hls,dash,translated_subs", -- yt speedup
                         "--", mp.get_property_native("path")}
 

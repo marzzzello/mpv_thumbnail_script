@@ -63,7 +63,7 @@ function Thumbnailer:on_thumb_ready(index)
 end
 
 function Thumbnailer:on_thumb_progress(index)
-    self.state.thumbnails[index] = math.max(self.state.thumbnails[index], 0)
+    self.state.thumbnails[index] = self.state.thumbnails[index] == 1
 end
 
 function Thumbnailer:on_start_file()

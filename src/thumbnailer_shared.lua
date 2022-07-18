@@ -63,7 +63,7 @@ function Thumbnailer:on_thumb_ready(index)
 end
 
 function Thumbnailer:on_thumb_progress(index)
-    self.state.thumbnails[index] = self.state.thumbnails[index] == 1
+    self.state.thumbnails[index] = (self.state.thumbnails[index] == 1) and 1 or 0
 end
 
 function Thumbnailer:on_start_file()

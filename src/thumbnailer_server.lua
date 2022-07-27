@@ -55,7 +55,9 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         -- Optionally disable subtitles
         (thumbnailer_options.mpv_no_sub and "--no-sub" or nil),
 
-        (options.no_scale == nil and ("--vf=scale=%d:%d"):format(size.w, size.h) or nil),
+        (options.relative_scale == nil
+                and ("--vf=scale=%d:%d"):format(size.w, size.h)
+                or ("--vf=scale=iw*%d:ih*%d"):format(size.w, size.h)),
 
         "--vf-add=format=bgra",
         "--of=rawvideo",
@@ -69,7 +71,7 @@ end
 function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, options)
     options = options or {}
 
-    local ffmpeg_command = skip_nil({
+    local ffmpeg_command = {
         "ffmpeg",
         "-loglevel", "quiet",
         "-noaccurate_seek",
@@ -79,13 +81,17 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, option
         "-frames:v", "1",
         "-an",
 
-        (options.no_scale == nil and "-vf" or nil), (options.no_scale == nil and ("scale=%d:%d"):format(size.w, size.h) or nil),
+        "-vf",
+        (options.relative_scale == nil
+                and ("scale=%d:%d"):format(size.w, size.h)
+                or ("scale=iw*%d:ih*%d"):format(size.w, size.h)),
+
         "-c:v", "rawvideo",
         "-pix_fmt", "bgra",
         "-f", "rawvideo",
 
         "-y", output_path
-    })
+    }
     return utils.subprocess({args=ffmpeg_command})
 end
 
@@ -225,7 +231,7 @@ function do_worker_job(state_json_string, frames_json_string)
                 if url == nil then
                     url = thumb_state.storyboard.fragment_base_url .. "/" .. thumb_state.storyboard.fragments[atlas_idx+1].path
                 end
-                local ret = thumbnail_func(url, 0, thumb_state.thumbnail_size, atlas_path, { no_scale=true })
+                local ret = thumbnail_func(url, 0, { w=thumb_state.storyboard.scale, h=thumb_state.storyboard.scale }, atlas_path, { relative_scale=true })
                 success = check_output(ret, atlas_path, thumbnail_func == create_thumbnail_mpv)
                 if success then
                     split_atlas(atlas_path, cols, thumb_state.thumbnail_size, function(idx)

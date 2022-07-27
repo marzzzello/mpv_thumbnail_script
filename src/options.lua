@@ -123,6 +123,8 @@ local thumbnailer_options = {
     storyboard_enable = true,
     -- Max thumbnails for storyboards. It only skips processing some of the downloaded thumbnails and doesn't make it much faster
     storyboard_max_thumbnail_count = 800,
+    -- Most storyboard thumbnails are 160x90. Enabling this allows upscaling them up to thumbnail_height
+    storyboard_upscale = false,
 }
 
 read_options(thumbnailer_options, SCRIPT_NAME)

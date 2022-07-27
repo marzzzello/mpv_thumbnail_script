@@ -108,7 +108,7 @@ function Thumbnailer:check_storyboard_async(callback)
                     self.state.storyboard.fragment_base_url = sb.fragment_base_url
                     self.state.storyboard.rows = sb.rows or 5
                     self.state.storyboard.cols = sb.columns or 5
-                    self.state.thumbnail_size = {w=sb.width, h=sb.height}
+
                     if sb.fps then
                         self.state.thumbnail_count = math.floor(sb.fps * sb.duration + 0.5) -- round
                         -- hack: youtube always adds 1 black frame at the end...
@@ -121,6 +121,16 @@ function Thumbnailer:check_storyboard_async(callback)
                         self.state.thumbnail_delta = sb.fragments[1].duration / (self.state.storyboard.rows*self.state.storyboard.cols)
                         self.state.thumbnail_count = math.floor(sb.duration / self.state.thumbnail_delta)
                     end
+
+                    -- Storyboard upscaling factor
+                    local scale = 1
+                    if thumbnailer_options.storyboard_upscale then
+                        -- BUG: sometimes mpv crashes when asked for non-integer scaling and BGRA format (something related to zimg?)
+                        -- use integer scaling for now
+                        scale = math.max(1, math.floor(thumbnailer_options.thumbnail_height / sb.height))
+                    end
+                    self.state.thumbnail_size = {w=sb.width*scale, h=sb.height*scale}
+                    self.state.storyboard.scale = scale
 
                     local divisor = 1 -- only save every n-th thumbnail
                     if thumbnailer_options.storyboard_max_thumbnail_count then

@@ -1,17 +1,17 @@
 # `mpv_thumbnail_script.lua`
 
 [![](docs/mpv_thumbnail_script.gif "Thumbnail preview for Sintel (2010) on mpv's seekbar")](https://www.youtube.com/watch?v=a9cmt176WDI)
-[*Click the image (or here) to view a YouTube video of the script in action*](https://www.youtube.com/watch?v=a9cmt176WDI)
+[_Click the image (or here) to view a YouTube video of the script in action_](https://www.youtube.com/watch?v=a9cmt176WDI)
 
-*(You might also be interested in [`mpv_crop_script.lua`](https://github.com/TheAMM/mpv_crop_script))*
+_(You might also be interested in [`mpv_crop_script.lua`](https://github.com/TheAMM/mpv_crop_script))_
 
-----
+---
 
 ## What is it?
 
 `mpv_thumbnail_script.lua` is a script/replacement OSC for [mpv](https://github.com/mpv-player/mpv) to display preview thumbnails when hovering over the seekbar, without any external dependencies[<sup>1</sup>](#footnotes), cross-platform-ly[<sup>2</sup>](#footnotes)!
 
-The script supports all four built-in OSC layouts, [as seen in this Youtube video](https://www.youtube.com/watch?v=WsfWmO41p8A).  
+The script supports all four built-in OSC layouts, [as seen in this Youtube video](https://www.youtube.com/watch?v=WsfWmO41p8A).\
 The script will also do multiple passes over the video, generating thumbnails with increasing frequency until the target is reached.
 This allows you to preview the end of the file before every thumbnail has been generated.
 
@@ -20,22 +20,23 @@ This allows you to preview the end of the file before every thumbnail has been g
 Grab the `.lua` files from the [**releases page**](https://github.com/marzzzello/mpv_thumbnail_script/releases) and place them in mpv's `scripts` directory.
 
 For example:
-  * Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
-  * Windows: `%APPDATA%\mpv\scripts\mpv_thumbnail_script_server.lua` & `%APPDATA%\mpv\scripts\mpv_thumbnail_script_client_osc.lua`
+
+- Linux/Unix/Mac: `~/.config/mpv/scripts/mpv_thumbnail_script_server.lua` & `~/.config/mpv/scripts/mpv_thumbnail_script_client_osc.lua`
+- Windows: `%APPDATA%\mpv\scripts\mpv_thumbnail_script_server.lua` & `%APPDATA%\mpv\scripts\mpv_thumbnail_script_client_osc.lua`
 
 (See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.)
 
 You should also read the [Configuration](#configuration) section.
 
-While the script doesn't need external dependencies and can work with mpv alone, it can also use FFmpeg for *slightly* faster thumbnail generation; just make sure `ffmpeg[.exe]` is in your `PATH` and `prefer_mpv` is set to `no` in your configuration.
+While the script doesn't need external dependencies and can work with mpv alone, it can also use FFmpeg for _slightly_ faster thumbnail generation; just make sure `ffmpeg[.exe]` is in your `PATH` and `prefer_mpv` is set to `no` in your configuration.
 
-***However,*** FFmpeg does not support "ordered chapters" in MKVs (segment linking, ie. an `.mkv` references another `.mkv`), which can break the thumbnailing process. You have been warned.
+**_However,_** FFmpeg does not support "ordered chapters" in MKVs (segment linking, ie. an `.mkv` references another `.mkv`), which can break the thumbnailing process. You have been warned.
 
 In general, you should just use multiple worker scripts ([Configuration](#configuration)) instead of taking the FFmpeg-risk.
 
 ## How do I use it?
 
-Just open a file and hover over the seekbar!  
+Just open a file and hover over the seekbar!\
 Although by default, videos over an hour will require you to press the `T` (that's `shift+t`) keybind.
 You may change this duration check in the configuration (`autogenerate_max_duration`).
 
@@ -45,36 +46,34 @@ You may change this duration check in the configuration (`autogenerate_max_durat
 
 **Note!** Because this script replaces the built-in OSC, you will have to set `osc=no` in your mpv's [main config file](https://mpv.io/manual/master/#files).
 
-
-**Multithreading:**  
-This script can use multiple concurrent thumbnailing jobs.  
-Simply copy the `mpv_thumbnail_script_server.lua` once or twice (`mpv_thumbnail_script_server-1.lua`, `mpv_thumbnail_script_server-2.lua`) and the workers will automatically register themselves with the core.  
-This improves thumbnailing speed a bunch, but you will quickly max out your CPU - I recommend only having two or three copies of the script.  
+**Multithreading:**\
+This script can use multiple concurrent thumbnailing jobs.\
+Simply copy the `mpv_thumbnail_script_server.lua` once or twice (`mpv_thumbnail_script_server-1.lua`, `mpv_thumbnail_script_server-2.lua`) and the workers will automatically register themselves with the core.\
+This improves thumbnailing speed a bunch, but you will quickly max out your CPU - I recommend only having two or three copies of the script.\
 (Why multiple copies of the same file? mpv gives each script their own thread - easy multithreading!)
 
 To adjust the script's options, create a file called `mpv_thumbnail_script.conf` inside your mpv's `script-opts` directory.
 
 For example:
-  * Linux/Unix/Mac: `~/.config/mpv/script-opts/mpv_thumbnail_script.conf`
-  * Windows: `%APPDATA%\mpv\script-opts\mpv_thumbnail_script.conf`
+
+- Linux/Unix/Mac: `~/.config/mpv/script-opts/mpv_thumbnail_script.conf`
+- Windows: `%APPDATA%\mpv\script-opts\mpv_thumbnail_script.conf`
 
 (See the [Files section](https://mpv.io/manual/master/#files) in mpv's manual for more info.)
 
-
-
 In this file you may set the following options:
+
 ```ini
 # The thumbnail cache directory.
 # On Windows this defaults to %TEMP%\mpv_thumbs_cache,
-# and on other platforms to /tmp/mpv_thumbs_cache.
+# and on other platforms to ${TEMP} or ${XDG_CACHE_HOME} or /tmp in the subfolder mpv_thumbs_cache
 # The directory will be created automatically, but must be writeable!
 # Use absolute paths, and take note that environment variables like %TEMP% are unsupported (despite the default)!
-cache_directory=/tmp/my_mpv_thumbnails
-# THIS IS NOT A WINDOWS PATH. COMMENT IT OUT OR ADJUST IT YOURSELF.
+# cache_directory=
 
 # Whether to generate thumbnails automatically on video load, without a keypress
 # Defaults to yes
-autogenerate=[yes/no]
+autogenerate=yes
 
 # Only automatically thumbnail videos shorter than this (in seconds)
 # You will have to press T (or your own keybind) to enable the thumbnail previews
@@ -86,16 +85,17 @@ autogenerate_max_duration=3600
 # ffmpeg is slightly faster than mpv but lacks support for ordered chapters in MKVs,
 # which can break the resulting thumbnails. You have been warned.
 # Defaults to yes (don't use ffmpeg)
-prefer_mpv=[yes/no]
+prefer_mpv=yes
 
 # Explicitly disable subtitles on the mpv sub-calls
 # mpv can and will by default render subtitles into the thumbnails.
 # If this is not what you wish, set mpv_no_sub to yes
 # Defaults to no
-mpv_no_sub=[yes/no]
+mpv_no_sub=no
 
 # Enable to disable the built-in keybind ("T") to add your own, see after the block
-disable_keybinds=[yes/no]
+# Defaults to no
+disable_keybinds=no
 
 # The maximum dimensions of the thumbnails, in pixels
 # Defaults to 200 and 200
@@ -104,6 +104,7 @@ thumbnail_height=200
 
 # The thumbnail count target
 # (This will result in a thumbnail every ~10 seconds for a 25 minute video)
+# Defaults to 150
 thumbnail_count=150
 
 # The above target count will be adjusted by the minimum and
@@ -119,12 +120,22 @@ min_delta=5
 max_delta=90
 # 120 seconds aka 2 minutes will add more thumbnails only when the video is over 5 hours long!
 
+# Parameter that mpv should use for hardware decoding
+# If properly configured can really improve thumbnail generation speed and cpu load
+# Default to no, see https://mpv.io/manual/master/#options-hwdec for the values
+mpv_hwdec=no
+
+
+# Remote options
+
+
 # Below are overrides for remote urls (you generally want less thumbnails, because it's slow!)
 # Thumbnailing network paths will be done with mpv (leveraging youtube-dl)
 
 # Allow thumbnailing network paths (naive check for "://")
 # Defaults to no
-thumbnail_network=[yes/no]
+thumbnail_network=no
+
 # Override thumbnail count, min/max delta, as above
 remote_thumbnail_count=60
 remote_min_delta=15
@@ -133,16 +144,66 @@ remote_max_delta=120
 # Try to grab the raw stream and disable ytdl for the mpv subcalls
 # Much faster than passing the url to ytdl again, but may cause problems with some sites
 # Defaults to yes
-remote_direct_stream=[yes/no]
+remote_direct_stream=yes
 
-# Parameter that mpv should use for hardware decoding
-# If properly configured can really improve thumbnail generation speed and cpu load
-# Default to no, see https://mpv.io/manual/master/#options-hwdec for the values
-mpv_hwdec=no
+# Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube and Twitch VoDs
+# Defaults to yes
+storyboard_enable=yes
+# Max thumbnails for storyboards. It only skips processing some of the downloaded thumbnails and doesn't make it much faster
+# Defaults to 800
+storyboard_max_thumbnail_count=800
+# Most storyboard thumbnails are 160x90. Enabling this allows upscaling them up to thumbnail_height
+# Defaults to no
+storyboard_upscale=no
+
+
+# Display options
+
+
+# Move the thumbnail up or down
+# For example:
+#   topbar/bottombar: 24 (default)
+#   rest: 0
+vertical_offset=24
+
+# Adjust background padding
+# Examples:
+#   topbar:       0, 10, 10, 10
+#   bottombar    10,  0, 10, 10 (default)
+#   slimbox/box: 10, 10, 10, 10
+pad_top   = 10
+pad_bot   =  0
+pad_left  = 10
+pad_right = 10
+
+# If enabled pad values are screen-pixels, else video-pixels.
+# Defaults to yes
+pad_in_screenspace=yes
+
+# Calculate pad into the offset
+# Defaults to yes
+offset_by_pad=yes
+
+# Background color in BBGGRR
+background_color=000000
+
+# Alpha: 0 - fully opaque, 255 - transparent
+# Defaults to 80
+background_alpha=80
+
+# Keep thumbnail on the screen near left or right side
+# Defaults to yes
+constrain_to_screen=yes
+
+# Do not display the thumbnailing progress
+# Defaults to no
+hide_progress=no
 ```
+
 (see [`src/options.lua`](/src/options.lua) for all possible options)
 
 With `disable_keybind=yes`, you can add your own keybind to [`input.conf`](https://mpv.io/manual/master/#input-conf) with `script-binding generate-thumbnails`, for example:
+
 ```ini
 shift+alt+s script-binding generate-thumbnails
 ```
@@ -156,6 +217,7 @@ The script requires Python 3, so install that. Nothing more, though. Call it wit
 You may also, of course, just `cat` the files together yourself. See the [`cat_osc.json`](cat_osc.json)/[`cat_server.json`](cat_server.json) for the order.
 
 #### Footnotes
-<sup>1</sup>You *may* need to add `mpv[.exe]` to your `PATH` (and *will* have to add `ffmpeg[.exe]` if you want faster generation).
 
-<sup>2</sup>Tested on Linux (Arch), but it *should* work on Windows/Mac and whatnot as well, if <sup>1</sup> has been taken care of.
+<sup>1</sup>You _may_ need to add `mpv[.exe]` to your `PATH` (and _will_ have to add `ffmpeg[.exe]` if you want faster generation).
+
+<sup>2</sup>Tested on Linux (Arch), but it _should_ work on Windows/Mac and whatnot as well, if <sup>1</sup> has been taken care of.

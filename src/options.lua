@@ -119,7 +119,7 @@ local thumbnailer_options = {
     -- Much faster than passing the url to ytdl again, but may cause problems with some sites
     remote_direct_stream = true,
 
-    -- Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube
+    -- Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube and Twitch VoDs
     storyboard_enable = true,
     -- Max thumbnails for storyboards. It only skips processing some of the downloaded thumbnails and doesn't make it much faster
     storyboard_max_thumbnail_count = 800,

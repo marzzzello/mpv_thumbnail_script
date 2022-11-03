@@ -1,6 +1,6 @@
 local SCRIPT_NAME = "mpv_thumbnail_script"
 
-local default_cache_base = ON_WINDOWS and os.getenv("TEMP") or "/tmp/"
+local default_cache_base = ON_WINDOWS and os.getenv("TEMP") or (os.getenv("XDG_CACHE_HOME") or "/tmp/")
 
 local thumbnailer_options = {
     -- The thumbnail directory
@@ -121,6 +121,10 @@ local thumbnailer_options = {
 
     -- Enable storyboards (requires yt-dlp in PATH). Currently only supports YouTube
     storyboard_enable = true,
+    -- Max thumbnails for storyboards. It only skips processing some of the downloaded thumbnails and doesn't make it much faster
+    storyboard_max_thumbnail_count = 800,
+    -- Most storyboard thumbnails are 160x90. Enabling this allows upscaling them up to thumbnail_height
+    storyboard_upscale = false,
 }
 
 read_options(thumbnailer_options, SCRIPT_NAME)

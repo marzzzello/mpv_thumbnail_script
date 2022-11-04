@@ -177,10 +177,10 @@ vertical_offset=24
 #   topbar:       0, 10, 10, 10
 #   bottombar    10,  0, 10, 10 (default)
 #   slimbox/box: 10, 10, 10, 10
-pad_top   = 10
-pad_bot   =  0
-pad_left  = 10
-pad_right = 10
+pad_top=10
+pad_bot=0
+pad_left=10
+pad_right=10
 
 # If enabled pad values are screen-pixels, else video-pixels.
 # Defaults to yes

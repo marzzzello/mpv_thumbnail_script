@@ -50,7 +50,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
         "--start=" .. tostring(timestamp),
         "--frames=1",
-        "--hr-seek=yes",
+        "--hr-seek=" .. thumbnailer_options.mpv_hr_seek,
         "--no-audio",
         -- Optionally disable subtitles
         (thumbnailer_options.mpv_no_sub and "--no-sub" or nil),

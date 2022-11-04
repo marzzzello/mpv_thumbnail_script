@@ -125,6 +125,12 @@ max_delta=90
 # Default to no, see https://mpv.io/manual/master/#options-hwdec for the values
 mpv_hwdec=no
 
+# Parameter that mpv should use for seeking
+# yes extracts the exact frame
+# no extracts the closest keyframe, faster but less precise
+# Default to yes
+mpv_hr_seek=yes
+
 
 # Remote options
 

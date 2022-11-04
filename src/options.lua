@@ -35,6 +35,8 @@ local thumbnailer_options = {
     mpv_profile = "",
     -- Hardware decoding
     mpv_hwdec = "no",
+    -- High precision seek
+    mpv_hr_seek = "yes",
     -- Output debug logs to <thumbnail_path>.log, ala <cache_directory>/<video_filename>/000000.bgra.log
     -- The logs are removed after successful encodes, unless you set mpv_keep_logs below
     mpv_logs = true,

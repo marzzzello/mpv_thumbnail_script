@@ -26,7 +26,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
     local log_arg = "--log-file=" .. output_path .. ".log"
 
-    local mpv_command = skip_nil({
+    local mpv_command = skip_nil{
         "mpv",
         -- Hide console output
         "--msg-level=all=no",
@@ -63,8 +63,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         "--of=rawvideo",
         "--ovc=rawvideo",
         ("--o=%s"):format(output_path)
-    })
-    return utils.subprocess({args=mpv_command})
+    }
+    return utils.subprocess{args=mpv_command}
 end
 
 
@@ -92,7 +92,7 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, option
 
         "-y", output_path
     }
-    return utils.subprocess({args=ffmpeg_command})
+    return utils.subprocess{args=ffmpeg_command}
 end
 
 

@@ -175,7 +175,7 @@ function Thumbnailer:update_state()
     self.state.ready = true
 
     local file_path = mp.get_property_native("path")
-    self.state.is_remote = file_path:find("://")
+    self.state.is_remote = self.state.is_remote or file_path:find("://")
 
     self.state.available = false
 
@@ -200,12 +200,12 @@ end
 
 function Thumbnailer:get_thumbnail_template()
     local file_path = mp.get_property_native("path")
-    local is_remote = file_path:find("://")
+    self.state.is_remote = self.state.is_remote or file_path:find("://")
 
     local filename = mp.get_property_native("filename/no-ext")
     local filesize = mp.get_property_native("file-size", 0)
 
-    if is_remote then
+    if self.state.is_remote then
         filesize = 0
     end
 
@@ -249,10 +249,10 @@ function Thumbnailer:get_delta()
     local is_seekable = mp.get_property_native("seekable")
 
     -- Naive url check
-    local is_remote = file_path:find("://")
+    self.state.is_remote = self.state.is_remote or file_path:find("://")
 
-    local remote_and_disallowed = is_remote
-    if is_remote and thumbnailer_options.thumbnail_network then
+    local remote_and_disallowed = self.state.is_remote
+    if self.state.is_remote and thumbnailer_options.thumbnail_network then
         remote_and_disallowed = false
     end
 
@@ -265,7 +265,7 @@ function Thumbnailer:get_delta()
     local min_delta = thumbnailer_options.min_delta
     local max_delta = thumbnailer_options.max_delta
 
-    if is_remote then
+    if self.state.is_remote then
         thumbnail_count = thumbnailer_options.remote_thumbnail_count
         min_delta = thumbnailer_options.remote_min_delta
         max_delta = thumbnailer_options.remote_max_delta

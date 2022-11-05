@@ -7,7 +7,7 @@ local utils = require 'mp.utils'
 ON_WINDOWS = (package.config:sub(1,1) ~= '/')
 
 -- Some helper functions needed to parse the options --
-function isempty(v) return (v == false) or (v == nil) or (v == "") or (v == 0) or (type(v) == "table" and next(v) == nil) end
+function isempty(v) return not v or (v == "") or (v == 0) or (type(v) == "table" and not next(v)) end
 
 function divmod (a, b)
   return math.floor(a / b), a % b
@@ -38,7 +38,7 @@ function split_path( path )
   local sep = ON_WINDOWS and "\\" or "/"
   local first_index, last_index = path:find('^.*' .. sep)
 
-  if last_index == nil then
+  if not last_index then
     return "", path
   else
     local dir = path:sub(0, last_index-1)
@@ -86,10 +86,10 @@ end
 
 function file_exists(name)
   local f = io.open(name, "rb")
-  if f ~= nil then
+  if f then
     local ok, err, code = f:read(1)
     io.close(f)
-    return code == nil
+    return not code
   else
     return false
   end
@@ -97,7 +97,7 @@ end
 
 function path_exists(name)
   local f = io.open(name, "rb")
-  if f ~= nil then
+  if f then
     io.close(f)
     return true
   else
@@ -141,7 +141,7 @@ local ExecutableFinder = { path_cache = {} }
 function ExecutableFinder:get_executable_path( name, raw_name )
   name = ON_WINDOWS and not raw_name and (name .. ".exe") or name
 
-  if self.path_cache[name] == nil then
+  if not self.path_cache[name] then
     self.path_cache[name] = find_executable(name) or false
   end
   return self.path_cache[name]
@@ -149,8 +149,8 @@ end
 
 -- Format seconds to HH.MM.SS.sss
 function format_time(seconds, sep, decimals)
-  decimals = decimals == nil and 3 or decimals
-  sep = sep and sep or "."
+  decimals = decimals or 3
+  sep = sep or "."
   local s = seconds
   local h, s = divmod(s, 60*60)
   local m, s = divmod(s, 60)
@@ -162,8 +162,8 @@ end
 
 -- Format seconds to 1h 2m 3.4s
 function format_time_hms(seconds, sep, decimals, force_full)
-  decimals = decimals == nil and 1 or decimals
-  sep = sep ~= nil and sep or " "
+  decimals = decimals or 1
+  sep = sep or " "
 
   local s = seconds
   local h, s = divmod(s, 60*60)
@@ -255,7 +255,7 @@ function get_processor_count()
     proc_count = tonumber(os.getenv("NUMBER_OF_PROCESSORS"))
   else
     local cpuinfo_handle = io.open("/proc/cpuinfo")
-    if cpuinfo_handle ~= nil then
+    if cpuinfo_handle then
       local cpuinfo_contents = cpuinfo_handle:read("*a")
       local _, replace_count = cpuinfo_contents:gsub('processor', '')
       proc_count = replace_count
@@ -264,8 +264,6 @@ function get_processor_count()
 
   if proc_count and proc_count > 0 then
       return proc_count
-  else
-    return nil
   end
 end
 

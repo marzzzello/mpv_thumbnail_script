@@ -73,14 +73,14 @@ end
 
 function Thumbnailer:on_video_change(params)
     -- Gather a new state when we get proper video-dec-params and our state is empty
-    if params ~= nil then
+    if params then
         if not self.state.ready then
             self:update_state()
             self:check_storyboard_async(function()
                 local duration = mp.get_property_native("duration")
                 local max_duration = thumbnailer_options.autogenerate_max_duration
 
-                if duration ~= nil and self.state.available and thumbnailer_options.autogenerate then
+                if duration and self.state.available and thumbnailer_options.autogenerate then
                     -- Notify if autogenerate is on and video is not too long
                     if duration < max_duration or max_duration == 0 then
                         self:start_worker_jobs()
@@ -102,7 +102,7 @@ function Thumbnailer:check_storyboard_async(callback)
         mp.command_native_async({name="subprocess", args=sb_cmd, capture_stdout=true}, function(success, sb_json)
             if success and sb_json.status == 0 then
                 local sb = utils.parse_json(sb_json.stdout)
-                if sb ~= nil and sb.duration and sb.width and sb.height and sb.fragments and #sb.fragments > 0 then
+                if sb and sb.duration and sb.width and sb.height and sb.fragments and #sb.fragments > 0 then
                     self.state.storyboard = {}
                     self.state.storyboard.fragments = sb.fragments
                     self.state.storyboard.fragment_base_url = sb.fragment_base_url
@@ -175,7 +175,7 @@ function Thumbnailer:update_state()
     self.state.ready = true
 
     local file_path = mp.get_property_native("path")
-    self.state.is_remote = file_path:find("://") ~= nil
+    self.state.is_remote = file_path:find("://")
 
     self.state.available = false
 
@@ -189,7 +189,7 @@ function Thumbnailer:update_state()
         end
     end
 
-    if has_video and self.state.thumbnail_delta ~= nil and self.state.thumbnail_size ~= nil and self.state.thumbnail_count > 0 then
+    if has_video and self.state.thumbnail_delta and self.state.thumbnail_size and self.state.thumbnail_count > 0 then
         self.state.available = true
     end
 
@@ -200,7 +200,7 @@ end
 
 function Thumbnailer:get_thumbnail_template()
     local file_path = mp.get_property_native("path")
-    local is_remote = file_path:find("://") ~= nil
+    local is_remote = file_path:find("://")
 
     local filename = mp.get_property_native("filename/no-ext")
     local filesize = mp.get_property_native("file-size", 0)
@@ -249,7 +249,7 @@ function Thumbnailer:get_delta()
     local is_seekable = mp.get_property_native("seekable")
 
     -- Naive url check
-    local is_remote = file_path:find("://") ~= nil
+    local is_remote = file_path:find("://")
 
     local remote_and_disallowed = is_remote
     if is_remote and thumbnailer_options.thumbnail_network then
@@ -279,7 +279,7 @@ end
 
 
 function Thumbnailer:get_thumbnail_count(delta)
-    if delta == nil then
+    if not delta then
         return 0
     end
     local file_duration = mp.get_property_native("duration")
@@ -307,8 +307,6 @@ function Thumbnailer:get_thumbnail_index(time_position)
     -- Returns a 1-based thumbnail index for the given timestamp (between 1 and thumbnail_count, inclusive)
     if self.state.thumbnail_delta and (self.state.thumbnail_count and self.state.thumbnail_count > 0) then
         return math.min(math.floor(time_position / self.state.thumbnail_delta) + 1, self.state.thumbnail_count)
-    else
-        return nil
     end
 end
 
@@ -324,7 +322,7 @@ function Thumbnailer:get_thumbnail_path(time_position)
 
     local closest = self:get_closest(thumbnail_index)
 
-    if closest ~= nil then
+    if closest then
         return self.state.thumbnail_template:format(closest-1), thumbnail_index, closest
     else
         return nil, thumbnail_index, nil

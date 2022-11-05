@@ -294,12 +294,12 @@ function Thumbnailer:get_closest(thumbnail_index)
    -- Look in the neighbourhood
    local dist = 0
    while dist < self.state.thumbnail_count do
-	   if t[thumbnail_index - dist] and t[thumbnail_index - dist] > 0 then
-		   return thumbnail_index - dist
-	   elseif t[thumbnail_index + dist] and t[thumbnail_index + dist] > 0 then
-		   return thumbnail_index + dist
-	   end
-	   dist = dist + 1
+       if t[thumbnail_index - dist] and t[thumbnail_index - dist] > 0 then
+           return thumbnail_index - dist
+       elseif t[thumbnail_index + dist] and t[thumbnail_index + dist] > 0 then
+           return thumbnail_index + dist
+       end
+       dist = dist + 1
    end
 end
 

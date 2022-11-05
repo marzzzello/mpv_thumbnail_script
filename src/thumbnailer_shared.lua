@@ -288,7 +288,7 @@ function Thumbnailer:get_thumbnail_count(delta)
 end
 
 function Thumbnailer:get_closest(thumbnail_index)
-    -- Given a 1-based index, find the closest available thumbnail and return it's 1-based index
+    -- Given a 1-based index, find the closest available thumbnail and return its 1-based index
    local t = self.state.thumbnails
 
    -- Look in the neighbourhood

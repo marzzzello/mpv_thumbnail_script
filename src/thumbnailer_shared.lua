@@ -289,24 +289,18 @@ end
 
 function Thumbnailer:get_closest(thumbnail_index)
     -- Given a 1-based index, find the closest available thumbnail and return it's 1-based index
+   local t = self.state.thumbnails
 
-    -- Check the direct thumbnail index first
-    if self.state.thumbnails[thumbnail_index] > 0 then
-        return thumbnail_index
-    end
-
-    local min_distance = self.state.thumbnail_count + 1
-    local closest = nil
-
-    -- Naive, inefficient, lazy. But functional.
-    for index, value in pairs(self.state.thumbnails) do
-        local distance = math.abs(index - thumbnail_index)
-        if distance < min_distance and value > 0 then
-            min_distance = distance
-            closest = index
-        end
-    end
-    return closest
+   -- Look in the neighbourhood
+   local dist = 0
+   while dist < self.state.thumbnail_count do
+	   if t[thumbnail_index - dist] and t[thumbnail_index - dist] > 0 then
+		   return thumbnail_index - dist
+	   elseif t[thumbnail_index + dist] and t[thumbnail_index + dist] > 0 then
+		   return thumbnail_index + dist
+	   end
+	   dist = dist + 1
+   end
 end
 
 function Thumbnailer:get_thumbnail_index(time_position)

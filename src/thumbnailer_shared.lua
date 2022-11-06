@@ -365,21 +365,22 @@ end
 
 function Thumbnailer:_create_thumbnail_job_order()
     -- Returns a list of 1-based thumbnail indices in a job order
-    local used_frames = {}
     local work_frames = {}
 
-    -- Pick frames in increasing frequency.
-    -- This way we can do a quick few passes over the video and then fill in the gaps.
-    for x = 6, 0, -1 do
-        local nth = (2^x)
+    -- Find a step large enough
+    local step = 1
+    repeat
+        step = step * 2
+    until step >= self.state.thumbnail_count
 
-        for thi = 1, self.state.thumbnail_count, nth do
-            if not used_frames[thi] then
-                table.insert(work_frames, thi)
-                used_frames[thi] = true
-            end
+    -- Fill the table with increasing frequency
+    while step > 1 do
+        for i = step/2, self.state.thumbnail_count, step do
+            table.insert(work_frames, i)
         end
+        step = step / 2
     end
+
     return work_frames
 end
 

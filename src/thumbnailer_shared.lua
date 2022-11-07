@@ -371,7 +371,7 @@ function Thumbnailer:_create_thumbnail_job_order()
     local step = 1
     repeat
         step = step * 2
-    until step >= self.state.thumbnail_count
+    until step > self.state.thumbnail_count
 
     -- Fill the table with increasing frequency
     while step > 1 do

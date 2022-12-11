@@ -142,6 +142,9 @@ mpv_hr_seek=yes
 # Defaults to no
 thumbnail_network=no
 
+# Same as autogenerate_max_duration but for remote videos
+# Defaults to 1200 (20 minutes)
+remote_autogenerate_max_duration=1200
 # Override thumbnail count, min/max delta, as above
 remote_thumbnail_count=60
 remote_min_delta=15

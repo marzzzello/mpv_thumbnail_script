@@ -26,8 +26,10 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
     local log_arg = "--log-file=" .. output_path .. ".log"
 
+    local mpv_path = ON_MAC and "/opt/homebrew/bin/mpv" or "mpv"
+
     local mpv_command = skip_nil({
-        "mpv",
+        mpv_path,
         -- Hide console output
         "--msg-level=all=no",
 
@@ -71,8 +73,10 @@ end
 function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, options)
     options = options or {}
 
+    local ffmpeg_path = ON_MAC and "/opt/homebrew/bin/ffmpeg" or "ffmpeg"
+
     local ffmpeg_command = {
-        "ffmpeg",
+        ffmpeg_path,
         "-loglevel", "quiet",
         "-noaccurate_seek",
         "-ss", format_time(timestamp, ":"),

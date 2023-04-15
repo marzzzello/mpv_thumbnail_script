@@ -119,6 +119,15 @@ function create_directories(path)
   utils.subprocess(cmd)
 end
 
+function find_on_paths(name, paths)
+  for _, path in ipairs(paths) do
+    if file_exists(path .. name) then
+      return path .. name
+    end
+  end
+  return nil
+end
+
 -- Find an executable in PATH or CWD with the given name
 function find_executable(name)
   local delim = ON_WINDOWS and ";" or ":"

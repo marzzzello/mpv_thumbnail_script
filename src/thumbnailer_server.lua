@@ -28,13 +28,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
     local mpv_path = nil
     if ON_MAC then
-        local system_app_dir_mpv = "/Applications/mpv.app/Contents/MacOS/mpv"
-        local user_app_dir_mpv = os.getenv("HOME") .. "/Applications/mpv.app/Contents/MacOS/mpv"
-        if file_exists(system_app_dir_mpv) then
-            mpv_path = system_app_dir_mpv
-        elseif file_exists(user_app_dir_mpv) then
-            mpv_path = user_app_dir_mpv
-        end
+        local applications_path = "Applications/mpv.app/Contents/MacOS/"
+        mpv_path = find_on_paths("mpv", { applications_path, os.getenv("HOME") .. applications_path })
     else mpv_path = "mpv"
     end
 
@@ -86,13 +81,7 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, option
 
     local ffmpeg_path = nil
     if ON_MAC then
-        local apple_silicon_homebrew_ffmpeg = "/opt/homebrew/bin/mpv"
-        local intel_homebrew_ffmpeg = "/usr/local/bin/mpv"
-        if file_exists(apple_silicon_homebrew_ffmpeg) then
-            ffmpeg_path = apple_silicon_homebrew_mpv
-        elseif file_exists(intel_homebrew_ffmpeg) then
-            ffmpeg_path = intel_homebrew_mpv
-        end
+        ffmpeg_path = find_on_paths("ffmpeg", { "/opt/homebrew/bin/", "/usr/local/bin/", os.getenv("HOME") .. "bin/" })
     else ffmpeg_path = "mpv"
     end
 

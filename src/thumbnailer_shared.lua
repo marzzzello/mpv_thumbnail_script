@@ -78,6 +78,12 @@ function Thumbnailer:on_video_change(params)
             self:update_state()
             self:check_storyboard_async(function()
                 local duration = mp.get_property_native("duration")
+                local max_duration
+                if self.state.is_remote then
+                    max_duration = thumbnailer_options.autogenerate_max_duration_remote
+                else
+                    max_duration = thumbnailer_options.autogenerate_max_duration
+                end
                 local max_duration = thumbnailer_options.autogenerate_max_duration
 
                 if duration and self.state.available and thumbnailer_options.autogenerate then

@@ -112,6 +112,8 @@ local thumbnailer_options = {
 
     -- Allow thumbnailing network paths (naive check for "://")
     thumbnail_network = false,
+    -- Same as autogenerate_max_duration but for remote videos
+    remote_autogenerate_max_duration = 1200, -- 20 min
     -- Override thumbnail count, min/max delta
     remote_thumbnail_count = 60,
     remote_min_delta = 15,

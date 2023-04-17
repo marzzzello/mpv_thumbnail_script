@@ -3,8 +3,12 @@ local msg = require 'mp.msg'
 local opt = require 'mp.options'
 local utils = require 'mp.utils'
 
--- Determine platform --
+-- Determine if the platform is Windows --
 ON_WINDOWS = (package.config:sub(1,1) ~= '/')
+
+-- Determine if the platform is MacOS --
+local uname = io.popen("uname -s"):read("*l")
+ON_MAC = not ON_WINDOWS and (uname == "Mac" or uname == "Darwin")
 
 -- Some helper functions needed to parse the options --
 function isempty(v) return not v or (v == "") or (v == 0) or (type(v) == "table" and not next(v)) end

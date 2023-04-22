@@ -227,6 +227,6 @@ You may also, of course, just `cat` the files together yourself. See the [`cat_o
 
 #### Footnotes
 
-<sup>1</sup>You _may_ need to add `mpv[.exe]` to your `PATH` (and _will_ have to add `ffmpeg[.exe]` if you want faster generation).
+<sup>1</sup>You _may_ need to add `mpv[.exe]` to your `PATH` (and _will_ have to add `ffmpeg[.exe]` if you want faster generation). Manual lookup of these binaries is attempted on macOS since GUI apps do not inherit user `PATH` on that OS.
 
-<sup>2</sup>Tested on Linux (Arch), but it _should_ work on Windows/Mac and whatnot as well, if <sup>1</sup> has been taken care of.
+<sup>2</sup>Tested on Linux (Arch, Ubuntu) and macOS, but it _should_ work on Windows and whatnot as well, if <sup>1</sup> has been taken care of.

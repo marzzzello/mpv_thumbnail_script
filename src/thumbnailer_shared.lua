@@ -236,6 +236,10 @@ function Thumbnailer:get_thumbnail_size()
     if not (video_width and video_height) then
         return nil
     end
+    local rotate = mp.get_property_number("video-params/rotate")
+    if rotate ~= nil and rotate % 180 == 90 then
+        video_width, video_height = video_height, video_width
+    end
 
     local w, h
     if video_width > video_height then

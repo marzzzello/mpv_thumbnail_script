@@ -108,6 +108,11 @@ local osc_thumb_state = {
     last_path = nil,
     last_x = nil,
     last_y = nil,
+
+    is_thumbfast = mp.get_script_name() == "thumbfast",
+    thumbfast_w = 0,
+    thumbfast_h = 0,
+    dirty = false
 }
 
 function hide_thumbnail()
@@ -123,145 +128,152 @@ function display_thumbnail(pos, value, ass)
     end
 
     local duration = mp.get_property_number("duration", nil)
-    if not ((duration == nil) or (value == nil)) then
-        target_position = duration * (value / 100)
-
-        local msx, msy = get_virt_scale_factor()
-        local osd_w, osd_h = mp.get_osd_size()
+    if not ((duration == nil and not osc_thumb_state.is_thumbfast) or (value == nil)) then
+        target_position = osc_thumb_state.is_thumbfast and value or (duration * (value / 100))
 
         local thumb_size = Thumbnailer.state.thumbnail_size
         local thumb_path, thumb_index, closest_index = Thumbnailer:get_thumbnail_path(target_position)
 
-        local thumbs_ready = Thumbnailer.state.finished_thumbnails
-        local thumbs_total = Thumbnailer.state.thumbnail_count
-        local perc = math.floor((thumbs_ready / thumbs_total) * 100)
-
-        local display_progress = thumbs_ready ~= thumbs_total and not thumbnailer_options.hide_progress
+        local msx, msy = 1, 1
+        if not osc_thumb_state.is_thumbfast then
+            msx, msy = get_virt_scale_factor()
+        end
 
         local vertical_offset = thumbnailer_options.vertical_offset
-        local padding = thumbnailer_options.background_padding
 
-        local pad = {
-            l = thumbnailer_options.pad_left, r = thumbnailer_options.pad_right,
-            t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot
-        }
-        if thumbnailer_options.pad_in_screenspace then
-            pad.l = pad.l * msx
-            pad.r = pad.r * msx
-            pad.t = pad.t * msy
-            pad.b = pad.b * msy
-        end
+        if ass ~= nil then
+            local osd_w, osd_h = mp.get_osd_size()
 
-        if thumbnailer_options.offset_by_pad then
-            vertical_offset = vertical_offset + (user_opts.layout == "topbar" and pad.t or pad.b)
-        end
+            local thumbs_ready = Thumbnailer.state.finished_thumbnails
+            local thumbs_total = Thumbnailer.state.thumbnail_count
+            local perc = math.floor((thumbs_ready / thumbs_total) * 100)
 
-        local ass_w = thumb_size.w * msx
-        local ass_h = thumb_size.h * msy
-        local y_offset = get_thumbnail_y_offset(thumb_size, 1)
+            local display_progress = thumbs_ready ~= thumbs_total and not thumbnailer_options.hide_progress
 
-        -- Constrain thumbnail display to window
-        -- (ie. don't let it go off-screen left/right)
-        if thumbnailer_options.constrain_to_screen and osd_w > (ass_w + pad.l + pad.r)/msx then
-            local padded_left = (pad.l + (ass_w / 2))
-            local padded_right = (pad.r + (ass_w / 2))
-            if pos.x - padded_left < 0 then
-                pos.x = padded_left
-            elseif pos.x + padded_right > osd_w*msx then
-                pos.x = osd_w*msx - padded_right
+            local padding = thumbnailer_options.background_padding
+
+            local pad = {
+                l = thumbnailer_options.pad_left, r = thumbnailer_options.pad_right,
+                t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot
+            }
+            if thumbnailer_options.pad_in_screenspace then
+                pad.l = pad.l * msx
+                pad.r = pad.r * msx
+                pad.t = pad.t * msy
+                pad.b = pad.b * msy
             end
-        end
 
-        local text_h = 30 * msy
-        local bg_h = ass_h + (display_progress and text_h or 0)
-        local bg_left = pos.x - ass_w/2
-        local framegraph_h = 10 * msy
+            if thumbnailer_options.offset_by_pad then
+                vertical_offset = vertical_offset + (user_opts.layout == "topbar" and pad.t or pad.b)
+            end
 
-        local bg_top = nil
-        local text_top = nil
-        local framegraph_top = nil
+            local ass_w = thumb_size.w * msx
+            local ass_h = thumb_size.h * msy
+            local y_offset = get_thumbnail_y_offset(thumb_size, 1)
 
-        if user_opts.layout == "topbar" then
-            bg_top = pos.y - ( y_offset + thumb_size.h ) + vertical_offset
-            text_top = bg_top + ass_h + framegraph_h
-            framegraph_top = bg_top + ass_h
-            vertical_offset = -vertical_offset
-        else
-            bg_top = pos.y - y_offset - bg_h - vertical_offset
-            text_top = bg_top
-            framegraph_top = bg_top + 20 * msy
-        end
+            -- Constrain thumbnail display to window
+            -- (ie. don't let it go off-screen left/right)
+            if thumbnailer_options.constrain_to_screen and osd_w > (ass_w + pad.l + pad.r)/msx then
+                local padded_left = (pad.l + (ass_w / 2))
+                local padded_right = (pad.r + (ass_w / 2))
+                if pos.x - padded_left < 0 then
+                    pos.x = padded_left
+                elseif pos.x + padded_right > osd_w*msx then
+                    pos.x = osd_w*msx - padded_right
+                end
+            end
 
-        if display_progress then
+            local text_h = 30 * msy
+            local bg_h = ass_h + (display_progress and text_h or 0)
+            local bg_left = pos.x - ass_w/2
+            local framegraph_h = 10 * msy
+
+            local bg_top = nil
+            local text_top = nil
+            local framegraph_top = nil
+
             if user_opts.layout == "topbar" then
-                pad.b = math.max(0, pad.b - 30)
+                bg_top = pos.y - ( y_offset + thumb_size.h ) + vertical_offset
+                text_top = bg_top + ass_h + framegraph_h
+                framegraph_top = bg_top + ass_h
+                vertical_offset = -vertical_offset
             else
-                pad.t = math.max(0, pad.t - 30)
+                bg_top = pos.y - y_offset - bg_h - vertical_offset
+                text_top = bg_top
+                framegraph_top = bg_top + 20 * msy
             end
-        end
 
-
-
-        -- Draw background
-        ass:new_event()
-        ass:pos(bg_left, bg_top)
-        ass:append(("{\\bord0\\1c&H%s&\\1a&H%X&}"):format(thumbnailer_options.background_color, thumbnailer_options.background_alpha))
-        ass:draw_start()
-        ass:rect_cw(-pad.l, -pad.t, ass_w+pad.r, bg_h+pad.b)
-        ass:draw_stop()
-
-        if display_progress then
-
-            ass:new_event()
-            ass:pos(pos.x, text_top)
-            ass:an(8)
-            -- Scale text to correct size
-            ass:append(("{\\fs20\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
-            ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
-
-            -- Draw the generation progress
-            local block_w = thumb_size.w * (Thumbnailer.state.thumbnail_delta / duration) * msy
-            local block_max_x = thumb_size.w * msy
-
-            -- Draw finished thumbnail blocks (white)
-            ass:new_event()
-            ass:pos(bg_left, framegraph_top)
-            ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
-            ass:draw_start(2)
-            for i, v in pairs(Thumbnailer.state.thumbnails) do
-                if i ~= closest_index and v > 0 then
-                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
+            if display_progress then
+                if user_opts.layout == "topbar" then
+                    pad.b = math.max(0, pad.b - 30)
+                else
+                    pad.t = math.max(0, pad.t - 30)
                 end
             end
-            ass:draw_stop()
 
-            -- Draw in-progress thumbnail blocks (grayish green)
+
+
+            -- Draw background
             ass:new_event()
-            ass:pos(bg_left, framegraph_top)
-            ass:append(("{\\bord0\\1c&H44AA44&\\1a&H%X&"):format(0))
-            ass:draw_start(2)
-            for i, v in pairs(Thumbnailer.state.thumbnails) do
-                if i ~= closest_index and v == 0 then
-                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
-                end
-            end
+            ass:pos(bg_left, bg_top)
+            ass:append(("{\\bord0\\1c&H%s&\\1a&H%X&}"):format(thumbnailer_options.background_color, thumbnailer_options.background_alpha))
+            ass:draw_start()
+            ass:rect_cw(-pad.l, -pad.t, ass_w+pad.r, bg_h+pad.b)
             ass:draw_stop()
 
-            if closest_index ~= nil then
+            if display_progress then
+
+                ass:new_event()
+                ass:pos(pos.x, text_top)
+                ass:an(8)
+                -- Scale text to correct size
+                ass:append(("{\\fs20\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
+                ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
+
+                -- Draw the generation progress
+                local block_w = thumb_size.w * (Thumbnailer.state.thumbnail_delta / duration) * msy
+                local block_max_x = thumb_size.w * msy
+
+                -- Draw finished thumbnail blocks (white)
                 ass:new_event()
                 ass:pos(bg_left, framegraph_top)
-                ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
+                ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
                 ass:draw_start(2)
-                ass:rect_cw((closest_index-1)*block_w, 0, math.min(block_max_x, closest_index*block_w), framegraph_h)
+                for i, v in pairs(Thumbnailer.state.thumbnails) do
+                    if i ~= closest_index and v > 0 then
+                        ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
+                    end
+                end
                 ass:draw_stop()
+
+                -- Draw in-progress thumbnail blocks (grayish green)
+                ass:new_event()
+                ass:pos(bg_left, framegraph_top)
+                ass:append(("{\\bord0\\1c&H44AA44&\\1a&H%X&"):format(0))
+                ass:draw_start(2)
+                for i, v in pairs(Thumbnailer.state.thumbnails) do
+                    if i ~= closest_index and v == 0 then
+                        ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
+                    end
+                end
+                ass:draw_stop()
+
+                if closest_index ~= nil then
+                    ass:new_event()
+                    ass:pos(bg_left, framegraph_top)
+                    ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
+                    ass:draw_start(2)
+                    ass:rect_cw((closest_index-1)*block_w, 0, math.min(block_max_x, closest_index*block_w), framegraph_h)
+                    ass:draw_stop()
+                end
             end
         end
 
         if thumb_path then
-            local overlay_y_offset = get_thumbnail_y_offset(thumb_size, msy)
+            local overlay_y_offset = osc_thumb_state.is_thumbfast and 0 or get_thumbnail_y_offset(thumb_size, msy)
 
-            local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
-            local thumb_y = math.floor(pos.y / msy - thumb_size.h - overlay_y_offset - vertical_offset/msy)
+            local thumb_x = osc_thumb_state.is_thumbfast and math.floor(pos.x + 0.5) or math.floor(pos.x / msx - thumb_size.w/2)
+            local thumb_y = osc_thumb_state.is_thumbfast and math.floor(pos.y + 0.5) or math.floor(pos.y / msy - thumb_size.h - overlay_y_offset - vertical_offset/msy)
 
             osc_thumb_state.visible = true
             if not (osc_thumb_state.last_path == thumb_path and osc_thumb_state.last_x == thumb_x and osc_thumb_state.last_y == thumb_y) then
@@ -279,9 +291,60 @@ function display_thumbnail(pos, value, ass)
                 osc_thumb_state.last_path = thumb_path
                 osc_thumb_state.last_x = thumb_x
                 osc_thumb_state.last_y = thumb_y
+                if osc_thumb_state.thumbfast_w ~= thumb_size.w or osc_thumb_state.thumbfast_h ~= thumb_size.h then
+                    osc_thumb_state.thumbfast_w, osc_thumb_state.thumbfast_h = thumb_size.w, thumb_size.h
+                    thumbfast_info()
+                end
             end
         end
     end
+end
+
+-- thumbfast provider
+function thumbfast_thumb(time, r_x, r_y, script)
+    display_thumbnail({x=r_x, y=r_y}, tonumber(time))
+end
+
+function thumbfast_info()
+    local thumb_size = Thumbnailer.state.thumbnail_size or { w=0, h=0 }
+    osc_thumb_state.thumbfast_w, osc_thumb_state.thumbfast_h = thumb_size.w, thumb_size.h
+
+    local disabled = (thumb_size.w or 0) == 0 or (thumb_size.h or 0) == 0
+
+    local json, err = utils.format_json({width=thumb_size.w, height=thumb_size.h, disabled=disabled, available=true, socket="", thumbnail=osc_thumb_state.last_path, overlay_id=osc_thumb_state.overlay_id})
+    mp.commandv("script-message", "thumbfast-info", json)
+end
+
+function thumbfast_file_load()
+    hide_thumbnail()
+    thumbfast_info()
+end
+
+function thumbfast_mark_dirty()
+    osc_thumb_state.dirty = true
+end
+
+function thumbfast_watch_changes()
+    if not osc_thumb_state.dirty then return end
+    thumbfast_info()
+    osc_thumb_state.dirty = false
+end
+
+if osc_thumb_state.is_thumbfast then
+    msg.debug("Acting as a thumbfast provider")
+
+    mp.observe_property("display-hidpi-scale", "native", thumbfast_mark_dirty)
+    mp.observe_property("video-out-params", "native", thumbfast_mark_dirty)
+    mp.observe_property("vf", "native", thumbfast_mark_dirty)
+
+    mp.register_script_message("thumb", thumbfast_thumb)
+    mp.register_script_message("clear", hide_thumbnail)
+
+    mp.register_event("file-loaded", thumbfast_file_load)
+
+    mp.register_idle(thumbfast_watch_changes)
+
+    return
 end
 
 -- // mpv_thumbnail_script.lua // --

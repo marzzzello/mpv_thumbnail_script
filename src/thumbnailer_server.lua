@@ -48,8 +48,6 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         profile_arg,
         (thumbnailer_options.mpv_logs and log_arg or nil),
 
-        file_path,
-
         "--start=" .. tostring(timestamp),
         "--frames=1",
         "--hr-seek=" .. thumbnailer_options.mpv_hr_seek,
@@ -64,7 +62,11 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         "--vf-add=format=bgra",
         "--of=rawvideo",
         "--ovc=rawvideo",
-        ("--o=%s"):format(output_path)
+        ("--o=%s"):format(output_path),
+
+        "--",
+
+        file_path
     })
     return utils.subprocess({args=mpv_command})
 end

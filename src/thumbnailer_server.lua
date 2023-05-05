@@ -66,7 +66,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         "--ovc=rawvideo",
         ("--o=%s"):format(output_path)
     }
-    return utils.subprocess{args=mpv_command}
+    return mp.command_native{name="subprocess", args=mpv_command}
 end
 
 
@@ -96,7 +96,7 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, option
 
         "-y", output_path
     }
-    return utils.subprocess{args=ffmpeg_command}
+    return mp.command_native{name="subprocess", args=ffmpeg_command}
 end
 
 

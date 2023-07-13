@@ -1,0 +1,292 @@
+--- osc.lua	2023-07-13 12:44:14.904527127 +0200
++++ patched_osc.lua	2023-07-13 12:30:09.810655031 +0200
+@@ -60,6 +60,233 @@
+ -- read options from config and command-line
+ opt.read_options(user_opts, "osc", function(list) update_options(list) end)
+ 
++
++-- mpv_thumbnail_script.lua --
++
++-- Patch in msg.trace
++if not msg.trace then
++    msg.trace = function(...) return mp.log("trace", ...) end
++end
++
++-- Patch in utils.format_bytes_humanized
++if not utils.format_bytes_humanized then
++    utils.format_bytes_humanized = function(b)
++        local d = {"Bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
++        local i = 1
++        while b >= 1024 do
++            b = b / 1024
++            i = i + 1
++        end
++        return string.format("%0.2f %s", b, d[i] and d[i] or "*1024^" .. (i-1))
++    end
++end
++
++Thumbnailer:register_client()
++
++function get_thumbnail_y_offset(thumb_size, msy)
++    local layout = user_opts.layout
++    local offset = 0
++
++    if layout == "bottombar" then
++        offset = 15 --+ margin
++    elseif layout == "topbar" then
++        offset = -(thumb_size.h * msy + 15)
++    elseif layout == "box" then
++        offset = 15
++    elseif layout == "slimbox" then
++        offset = 12
++    end
++
++    return offset / msy
++end
++
++
++local osc_thumb_state = {
++    visible = false,
++    overlay_id = 1,
++
++    last_path = nil,
++    last_x = nil,
++    last_y = nil,
++}
++
++function hide_thumbnail()
++    osc_thumb_state.visible = false
++    osc_thumb_state.last_path = nil
++    mp.command_native({ "overlay-remove", osc_thumb_state.overlay_id })
++end
++
++function display_thumbnail(pos, value, ass)
++    -- If thumbnails are not available, bail
++    if not (Thumbnailer.state.enabled and Thumbnailer.state.available) then
++        return
++    end
++
++    local duration = mp.get_property_number("duration", nil)
++    if duration and value then
++        target_position = duration * (value / 100)
++
++        local msx, msy = get_virt_scale_factor()
++        local osd_w, osd_h = mp.get_osd_size()
++
++        local thumb_size = Thumbnailer.state.thumbnail_size
++        local thumb_path, thumb_index, closest_index = Thumbnailer:get_thumbnail_path(target_position)
++
++        local thumbs_ready = Thumbnailer.state.finished_thumbnails
++        local thumbs_total = Thumbnailer.state.thumbnail_count
++        local perc = math.floor((thumbs_ready / thumbs_total) * 100)
++
++        local display_progress = thumbs_ready ~= thumbs_total and not thumbnailer_options.hide_progress
++
++        local vertical_offset = thumbnailer_options.vertical_offset
++        local padding = thumbnailer_options.background_padding
++
++        local pad = {
++            l = thumbnailer_options.pad_left, r = thumbnailer_options.pad_right,
++            t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot,
++        }
++        if thumbnailer_options.pad_in_screenspace then
++            pad.l = pad.l * msx
++            pad.r = pad.r * msx
++            pad.t = pad.t * msy
++            pad.b = pad.b * msy
++        end
++
++        if thumbnailer_options.offset_by_pad then
++            vertical_offset = vertical_offset + (user_opts.layout == "topbar" and pad.t or pad.b)
++        end
++
++        local ass_w = thumb_size.w * msx
++        local ass_h = thumb_size.h * msy
++        local y_offset = get_thumbnail_y_offset(thumb_size, 1)
++
++        -- Constrain thumbnail display to window
++        -- (ie. don't let it go off-screen left/right)
++        if thumbnailer_options.constrain_to_screen and osd_w > (ass_w + pad.l + pad.r)/msx then
++            local padded_left = (pad.l + (ass_w / 2))
++            local padded_right = (pad.r + (ass_w / 2))
++            if pos.x - padded_left < 0 then
++                pos.x = padded_left
++            elseif pos.x + padded_right > osd_w*msx then
++                pos.x = osd_w*msx - padded_right
++            end
++        end
++
++        local text_h = 30 * msy
++        local bg_h = ass_h + (display_progress and text_h or 0)
++        local bg_left = pos.x - ass_w/2
++        local framegraph_h = 10 * msy
++
++        local bg_top
++        local text_top
++        local framegraph_top
++
++        if user_opts.layout == "topbar" then
++            bg_top = pos.y - ( y_offset + thumb_size.h ) + vertical_offset
++            text_top = bg_top + ass_h + framegraph_h
++            framegraph_top = bg_top + ass_h
++            vertical_offset = -vertical_offset
++        else
++            bg_top = pos.y - y_offset - bg_h - vertical_offset
++            text_top = bg_top
++            framegraph_top = bg_top + 20 * msy
++        end
++
++        if display_progress then
++            if user_opts.layout == "topbar" then
++                pad.b = math.max(0, pad.b - 30)
++            else
++                pad.t = math.max(0, pad.t - 30)
++            end
++        end
++
++
++
++        -- Draw background
++        ass:new_event()
++        ass:pos(bg_left, bg_top)
++        ass:append(("{\\bord0\\1c&H%s&\\1a&H%X&}"):format(thumbnailer_options.background_color, thumbnailer_options.background_alpha))
++        ass:draw_start()
++        ass:rect_cw(-pad.l, -pad.t, ass_w+pad.r, bg_h+pad.b)
++        ass:draw_stop()
++
++        if display_progress then
++
++            ass:new_event()
++            ass:pos(pos.x, text_top)
++            ass:an(8)
++            -- Scale text to correct size
++            ass:append(("{\\fs20\\bord0\\fscx%f\\fscy%f}"):format(100*msx, 100*msy))
++            ass:append(("%d%% - %d/%d"):format(perc, thumbs_ready, thumbs_total))
++
++            -- Draw the generation progress
++            local block_w = thumb_size.w * (Thumbnailer.state.thumbnail_delta / duration) * msy
++            local block_max_x = thumb_size.w * msy
++
++            -- Draw finished thumbnail blocks (white)
++            ass:new_event()
++            ass:pos(bg_left, framegraph_top)
++            ass:append(("{\\bord0\\1c&HFFFFFF&\\1a&H%X&"):format(0))
++            ass:draw_start(2)
++            for i, v in pairs(Thumbnailer.state.thumbnails) do
++                if i ~= closest_index and v > 0 then
++                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
++                end
++            end
++            ass:draw_stop()
++
++            -- Draw in-progress thumbnail blocks (grayish green)
++            ass:new_event()
++            ass:pos(bg_left, framegraph_top)
++            ass:append(("{\\bord0\\1c&H44AA44&\\1a&H%X&"):format(0))
++            ass:draw_start(2)
++            for i, v in pairs(Thumbnailer.state.thumbnails) do
++                if i ~= closest_index and v == 0 then
++                    ass:rect_cw((i-1)*block_w, 0, math.min(block_max_x, i*block_w), framegraph_h)
++                end
++            end
++            ass:draw_stop()
++
++            if closest_index then
++                ass:new_event()
++                ass:pos(bg_left, framegraph_top)
++                ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
++                ass:draw_start(2)
++                ass:rect_cw((closest_index-1)*block_w, 0, math.min(block_max_x, closest_index*block_w), framegraph_h)
++                ass:draw_stop()
++            end
++        end
++
++        if thumb_path then
++            local overlay_y_offset = get_thumbnail_y_offset(thumb_size, msy)
++
++            local thumb_x = math.floor(pos.x / msx - thumb_size.w/2)
++            local thumb_y = math.floor(pos.y / msy - thumb_size.h - overlay_y_offset - vertical_offset/msy)
++
++            osc_thumb_state.visible = true
++            if not (osc_thumb_state.last_path == thumb_path and osc_thumb_state.last_x == thumb_x and osc_thumb_state.last_y == thumb_y) then
++                local overlay_add_args = {
++                    "overlay-add", osc_thumb_state.overlay_id,
++                    thumb_x, thumb_y,
++                    thumb_path,
++                    0,
++                    "bgra",
++                    thumb_size.w, thumb_size.h,
++                    4 * thumb_size.w,
++                }
++                mp.command_native(overlay_add_args)
++
++                osc_thumb_state.last_path = thumb_path
++                osc_thumb_state.last_x = thumb_x
++                osc_thumb_state.last_y = thumb_y
++            end
++        end
++    end
++end
++
++-- // mpv_thumbnail_script.lua // --
++
++
+ local osc_param = { -- calculated by osc_init()
+     playresy = 0,                           -- canvas size Y
+     playresx = 0,                           -- canvas size X
+@@ -832,6 +1059,10 @@
+                     ass_append_alpha(elem_ass, slider_lo.alpha, 0)
+                     elem_ass:append(tooltiplabel)
+ 
++                    -- mpv_thumbnail_script.lua --
++                    display_thumbnail({x=get_virt_mouse_pos(), y=ty, a=an}, sliderpos, elem_ass)
++                    -- // mpv_thumbnail_script.lua // --
++
+                 end
+             end
+ 
+@@ -2455,11 +2686,22 @@
+     -- Messages
+     render_message(ass)
+ 
++    -- mpv_thumbnail_script.lua --
++    local thumb_was_visible = osc_thumb_state.visible
++    osc_thumb_state.visible = false
++    -- // mpv_thumbnail_script.lua // --
++
+     -- actual OSC
+     if state.osc_visible then
+         render_elements(ass)
+     end
+ 
++    -- mpv_thumbnail_script.lua --
++    if not osc_thumb_state.visible and thumb_was_visible then
++        hide_thumbnail()
++    end
++    -- // mpv_thumbnail_script.lua // --
++
+     -- submit
+     set_osd(osc_param.playresy * osc_param.display_aspect,
+             osc_param.playresy, ass.text)
+@@ -2697,6 +2939,21 @@
+     end
+ end
+ 
++-- mpv_thumbnail_script.lua --
++
++local builtin_osc_enabled = mp.get_property_native('osc')
++if builtin_osc_enabled then
++    local err = "You must disable the built-in OSC with osc=no in your configuration!"
++    mp.osd_message(err, 5)
++    msg.error(err)
++
++    -- This may break, but since we can, let's try to just disable the builtin OSC.
++    mp.set_property_native('osc', false)
++end
++
++-- // mpv_thumbnail_script.lua // --
++
++
+ validate_user_opts()
+ update_duration_watch()
+ 

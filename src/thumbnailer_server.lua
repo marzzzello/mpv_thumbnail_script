@@ -66,7 +66,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
         "--",
 
-        file_path
+        file_path,
     })
     return utils.subprocess({args=mpv_command})
 end

@@ -28,7 +28,7 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
     local mpv_path = ON_MAC and "/opt/homebrew/bin/mpv" or "mpv"
 
-    local mpv_command = skip_nil({
+    local mpv_command = skip_nil{
         mpv_path,
         -- Hide console output
         "--msg-level=all=no",
@@ -55,9 +55,9 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         -- Optionally disable subtitles
         (thumbnailer_options.mpv_no_sub and "--no-sub" or nil),
 
-        (options.relative_scale == nil
-                and ("--vf=scale=%d:%d"):format(size.w, size.h)
-                or ("--vf=scale=iw*%d:ih*%d"):format(size.w, size.h)),
+        (options.relative_scale
+                and ("--vf=scale=iw*%d:ih*%d"):format(size.w, size.h)
+                or ("--vf=scale=%d:%d"):format(size.w, size.h)),
 
         "--vf-add=format=bgra",
         "--of=rawvideo",
@@ -67,8 +67,8 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
         "--",
 
         file_path,
-    })
-    return utils.subprocess({args=mpv_command})
+    }
+    return mp.command_native{name="subprocess", args=mpv_command}
 end
 
 
@@ -88,17 +88,17 @@ function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, option
         "-an",
 
         "-vf",
-        (options.relative_scale == nil
-                and ("scale=%d:%d"):format(size.w, size.h)
-                or ("scale=iw*%d:ih*%d"):format(size.w, size.h)),
+        (options.relative_scale
+                and ("scale=iw*%d:ih*%d"):format(size.w, size.h)
+                or ("scale=%d:%d"):format(size.w, size.h)),
 
         "-c:v", "rawvideo",
         "-pix_fmt", "bgra",
         "-f", "rawvideo",
 
-        "-y", output_path
+        "-y", output_path,
     }
-    return utils.subprocess({args=ffmpeg_command})
+    return mp.command_native{name="subprocess", args=ffmpeg_command}
 end
 
 
@@ -146,12 +146,12 @@ function split_atlas(atlas_path, cols, thumbnail_size, output_name)
         local x_start = (pic % cols) * thumbnail_size.w
         local y_start = math.floor(pic / cols) * thumbnail_size.h
         local filename = output_name(pic)
-        if filename ~= nil then
+        if filename then
             local thumb_file = io.open(filename, "wb")
             for line = 0, thumbnail_size.h - 1 do
                 atlas:seek("set", 4 * x_start + (y_start + line) * stride)
                 local data = atlas:read(thumbnail_size.w * 4)
-                if data ~= nil then
+                if data then
                     thumb_file:write(data)
                 end
             end
@@ -187,7 +187,7 @@ function do_worker_job(state_json_string, frames_json_string)
     local file_duration = mp.get_property_native("duration")
     local file_path = thumb_state.worker_input_path
 
-    if thumb_state.is_remote and thumb_state.storyboard == nil then
+    if thumb_state.is_remote and not thumb_state.storyboard then
         if (thumbnail_func == create_thumbnail_ffmpeg) then
             msg.warn("Thumbnailing remote path, falling back on mpv.")
         end
@@ -212,7 +212,7 @@ function do_worker_job(state_json_string, frames_json_string)
 
         -- Check if the thumbnail already exists and is the correct size
         local thumbnail_file = io.open(thumbnail_path, "rb")
-        if thumbnail_file == nil then
+        if not thumbnail_file then
             need_thumbnail_generation = true
         else
             local existing_thumbnail_filesize = thumbnail_file:seek("end")
@@ -226,7 +226,7 @@ function do_worker_job(state_json_string, frames_json_string)
 
         if need_thumbnail_generation then
             local success
-            if thumb_state.storyboard ~= nil then
+            if thumb_state.storyboard then
                 -- get atlas and then split it into thumbnails
                 local rows = thumb_state.storyboard.rows
                 local cols = thumb_state.storyboard.cols
@@ -234,7 +234,7 @@ function do_worker_job(state_json_string, frames_json_string)
                 local atlas_idx = math.floor(thumb_idx * div /(cols*rows))
                 local atlas_path = thumb_state.thumbnail_template:format(atlas_idx) .. ".atlas"
                 local url = thumb_state.storyboard.fragments[atlas_idx+1].url
-                if url == nil then
+                if not url then
                     url = thumb_state.storyboard.fragment_base_url .. "/" .. thumb_state.storyboard.fragments[atlas_idx+1].path
                 end
                 local ret = thumbnail_func(url, 0, { w=thumb_state.storyboard.scale, h=thumb_state.storyboard.scale }, atlas_path, { relative_scale=true })
@@ -253,7 +253,7 @@ function do_worker_job(state_json_string, frames_json_string)
                 success = check_output(ret, thumbnail_path, thumbnail_func == create_thumbnail_mpv)
             end
 
-            if success == nil then
+            if not success then
                 -- Killed by us, changing files, ignore
                 msg.debug("Changing files, subprocess killed")
                 return true
@@ -271,7 +271,7 @@ function do_worker_job(state_json_string, frames_json_string)
         thumbnail_file = io.open(thumbnail_path, "rb")
 
         -- Bail if we can't read the file (it should really exist by now, we checked this in check_output!)
-        if thumbnail_file == nil then
+        if not thumbnail_file then
             msg.error("Thumbnail suddenly disappeared!")
             return true
         end

@@ -32,7 +32,7 @@ local Thumbnailer = {
     worker_register_timeout = nil,
     -- A timer used to wait for more workers in case we have none
     worker_wait_timer = nil,
-    workers = {}
+    workers = {},
 }
 
 function Thumbnailer:clear_state()

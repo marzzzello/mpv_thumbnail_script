@@ -123,7 +123,7 @@ function display_thumbnail(pos, value, ass)
     end
 
     local duration = mp.get_property_number("duration", nil)
-    if not ((duration == nil) or (value == nil)) then
+    if duration and value then
         target_position = duration * (value / 100)
 
         local msx, msy = get_virt_scale_factor()
@@ -143,7 +143,7 @@ function display_thumbnail(pos, value, ass)
 
         local pad = {
             l = thumbnailer_options.pad_left, r = thumbnailer_options.pad_right,
-            t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot
+            t = thumbnailer_options.pad_top, b = thumbnailer_options.pad_bot,
         }
         if thumbnailer_options.pad_in_screenspace then
             pad.l = pad.l * msx
@@ -177,9 +177,9 @@ function display_thumbnail(pos, value, ass)
         local bg_left = pos.x - ass_w/2
         local framegraph_h = 10 * msy
 
-        local bg_top = nil
-        local text_top = nil
-        local framegraph_top = nil
+        local bg_top
+        local text_top
+        local framegraph_top
 
         if user_opts.layout == "topbar" then
             bg_top = pos.y - ( y_offset + thumb_size.h ) + vertical_offset
@@ -247,7 +247,7 @@ function display_thumbnail(pos, value, ass)
             end
             ass:draw_stop()
 
-            if closest_index ~= nil then
+            if closest_index then
                 ass:new_event()
                 ass:pos(bg_left, framegraph_top)
                 ass:append(("{\\bord0\\1c&H4444FF&\\1a&H%X&"):format(0))
@@ -272,7 +272,7 @@ function display_thumbnail(pos, value, ass)
                     0,
                     "bgra",
                     thumb_size.w, thumb_size.h,
-                    4 * thumb_size.w
+                    4 * thumb_size.w,
                 }
                 mp.command_native(overlay_add_args)
 

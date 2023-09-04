@@ -212,12 +212,14 @@ function Thumbnailer:get_thumbnail_template()
     local filesize = mp.get_property_native("file-size", 0)
 
     if self.state.is_remote then
+        -- Use full path for remote URLs as filename part is often similar
+        filename = file_path
         filesize = 0
     end
 
     filename = filename:gsub('[^a-zA-Z0-9_.%-\' ]', '')
-    -- Hash overly long filenames (most likely URLs)
-    if #filename > thumbnailer_options.hash_filename_length then
+    -- Hash overly long filenames and any remote URL
+    if #filename > thumbnailer_options.hash_filename_length or self.state.is_remote then
         filename = sha1.hex(filename)
     end
 

@@ -679,7 +679,7 @@ local elements = {}
 
 function prepare_elements()
 
-    -- remove elements without layout or invisble
+    -- remove elements without layout or invisible
     local elements2 = {}
     for n, element in pairs(elements) do
         if not (element.layout == nil) and (element.visible) then
@@ -1373,9 +1373,8 @@ function window_controls(topbar)
     -- deadzone below window controls
     local sh_area_y0, sh_area_y1
     sh_area_y0 = user_opts.barmargin
-    sh_area_y1 = (wc_geo.y + (wc_geo.h / 2)) +
-                 get_align(1 - (2 * user_opts.deadzonesize),
-                 osc_param.playresy - (wc_geo.y + (wc_geo.h / 2)), 0, 0)
+    sh_area_y1 = wc_geo.y + get_align(1 - (2 * user_opts.deadzonesize),
+                                      osc_param.playresy - wc_geo.y, 0, 0)
     add_area("showhide_wc", wc_geo.x, sh_area_y0, wc_geo.w, sh_area_y1)
 
     if topbar then
@@ -1543,6 +1542,11 @@ layouts["box"] = function ()
     lo = add_layout("cy_sub")
     lo.geometry =
         {x = posX - pos_offsetX, y = bigbtnrowY, an = 7, w = 70, h = 18}
+    lo.style = osc_styles.smallButtonsL
+
+    lo = add_layout("tog_forced_only")
+    lo.geometry =
+        {x = posX - pos_offsetX + 70, y = bigbtnrowY - 1, an = 7, w = 25, h = 18}
     lo.style = osc_styles.smallButtonsL
 
     lo = add_layout("tog_fs")
@@ -1758,13 +1762,11 @@ function bar_layout(direction)
     if direction > 0 then
         -- deadzone below OSC
         sh_area_y0 = user_opts.barmargin
-        sh_area_y1 = (osc_geo.y + (osc_geo.h / 2)) +
-                     get_align(1 - (2*user_opts.deadzonesize),
-                     osc_param.playresy - (osc_geo.y + (osc_geo.h / 2)), 0, 0)
+        sh_area_y1 = osc_geo.y + get_align(1 - (2 * user_opts.deadzonesize),
+                                           osc_param.playresy - osc_geo.y, 0, 0)
     else
         -- deadzone above OSC
-        sh_area_y0 = get_align(-1 + (2*user_opts.deadzonesize),
-                               osc_geo.y - (osc_geo.h / 2), 0, 0)
+        sh_area_y0 = get_align(-1 + (2 * user_opts.deadzonesize), osc_geo.y, 0, 0)
         sh_area_y1 = osc_param.playresy - user_opts.barmargin
     end
     add_area("showhide", 0, sh_area_y0, osc_param.playresx, sh_area_y1)
@@ -1850,6 +1852,12 @@ function bar_layout(direction)
     -- Volume
     geo = { x = geo.x - geo.w - padX, y = geo.y, an = geo.an, w = geo.w, h = geo.h }
     lo = add_layout("volume")
+    lo.geometry = geo
+    lo.style = osc_styles.smallButtonsBar
+
+    -- Forced-subs-only button
+    geo = { x = geo.x - geo.w - padX, y = geo.y, an = geo.an, w = geo.w, h = geo.h }
+    lo = add_layout("tog_forced_only")
     lo.geometry = geo
     lo.style = osc_styles.smallButtonsBar
 
@@ -2190,6 +2198,32 @@ function osc_init()
     ne.eventresponder["shift+mbtn_left_down"] =
         function () show_message(get_tracklist("sub"), 2) end
 
+    -- tog_forced_only
+    local tog_forced_only = new_element("tog_forced_only", "button")
+
+    ne = tog_forced_only
+    ne.content = function ()
+        sub_codec = mp.get_property("current-tracks/sub/codec")
+        if (sub_codec ~= "dvd_subtitle" and sub_codec ~= "hdmv_pgs_subtitle") then
+            return ""
+        end
+        local base_a = tog_forced_only.layout.alpha
+        local alpha = base_a[1]
+        if not mp.get_property_bool("sub-forced-only-cur") then
+            alpha = 255
+        end
+        local ret = assdraw.ass_new()
+        ret:append("[")
+        ass_append_alpha(ret, {[1] = alpha, [2] = 1, [3] = base_a[3], [4] = base_a[4]}, 0)
+        ret:append("F")
+        ass_append_alpha(ret, base_a, 0)
+        ret:append("]")
+        return ret.text
+    end
+    ne.eventresponder["mbtn_left_up"] = function ()
+        mp.set_property_bool("sub-forced-only", (not mp.get_property_bool("sub-forced-only-cur")))
+    end
+
     --tog_fs
     ne = new_element("tog_fs", "button")
     ne.content = function ()
@@ -2426,11 +2460,13 @@ function update_margins()
 
     utils.shared_script_property_set("osc-margins",
         string.format("%f,%f,%f,%f", margins.l, margins.r, margins.t, margins.b))
+    mp.set_property_native("user-data/osc/margins", margins)
 end
 
 function shutdown()
     reset_margins()
     utils.shared_script_property_set("osc-margins", nil)
+    mp.del_property("user-data/osc")
 end
 
 --
@@ -2554,7 +2590,7 @@ function render()
 
     -- init management
     if state.active_element then
-        -- mouse is held down on some element - keep ticking and igore initReq
+        -- mouse is held down on some element - keep ticking and ignore initReq
         -- till it's released, or else the mouse-up (click) will misbehave or
         -- get ignored. that's because osc_init() recreates the osc elements,
         -- but mouse handling depends on the elements staying unmodified
@@ -2834,6 +2870,9 @@ function tick()
         -- render idle message
         msg.trace("idle message")
         local _, _, display_aspect = mp.get_osd_size()
+        if display_aspect == 0 then
+            return
+        end
         local display_h = 360
         local display_w = display_h * display_aspect
         -- logo is rendered at 2^(6-1) = 32 times resolution with size 1800x1800
@@ -3110,6 +3149,7 @@ function visibility_mode(mode, no_osd)
 
     user_opts.visibility = mode
     utils.shared_script_property_set("osc-visibility", mode)
+    mp.set_property_native("user-data/osc/visibility", mode)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
         mp.osd_message("OSC visibility: " .. mode)
@@ -3142,6 +3182,7 @@ function idlescreen_visibility(mode, no_osd)
     end
 
     utils.shared_script_property_set("osc-idlescreen", mode)
+    mp.set_property_native("user-data/osc/idlescreen", user_opts.idlescreen)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
         mp.osd_message("OSC logo visibility: " .. tostring(mode))

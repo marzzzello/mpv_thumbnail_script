@@ -1,5 +1,5 @@
---- osc.lua	2023-07-13 14:35:39.479614601 +0200
-+++ patched_osc.lua	2023-07-13 14:35:39.482947922 +0200
+--- osc.lua	2023-09-20 20:17:42.473379651 +0200
++++ patched_osc.lua	2023-09-20 20:17:42.482379658 +0200
 @@ -60,6 +60,233 @@
  -- read options from config and command-line
  opt.read_options(user_opts, "osc", function(list) update_options(list) end)
@@ -245,7 +245,7 @@
                  end
              end
  
-@@ -2461,11 +2692,22 @@
+@@ -2497,11 +2728,22 @@
      -- Messages
      render_message(ass)
  
@@ -268,7 +268,7 @@
      -- submit
      set_osd(osc_param.playresy * osc_param.display_aspect,
              osc_param.playresy, ass.text)
-@@ -2703,6 +2945,21 @@
+@@ -2742,6 +2984,21 @@
      end
  end
  

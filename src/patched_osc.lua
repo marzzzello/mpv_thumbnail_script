@@ -38,10 +38,13 @@ local user_opts = {
     seekrangeseparate = true,   -- whether the seekranges overlay on the bar-style seekbar
     seekrangealpha = 200,       -- transparency of seekranges
     seekbarkeyframes = true,    -- use keyframes when dragging the seekbar
+    scrollcontrols = true,      -- allow scrolling when hovering certain OSC elements
     title = "${media-title}",   -- string compatible with property-expansion
                                 -- to be shown as OSC title
     tooltipborder = 1,          -- border of tooltip in bottom/topbar
     timetotal = false,          -- display total time instead of remaining time?
+    remaining_playtime = true,  -- display the remaining time in playtime or video-time mode
+                                -- playtime takes speed into account, whereas video-time doesn't
     timems = false,             -- display timecodes with milliseconds?
     tcspace = 100,              -- timecode spacing (compensate font size estimation)
     visibility = "auto",        -- only used at init to set visibility_mode(...)
@@ -49,6 +52,7 @@ local user_opts = {
     boxvideo = false,           -- apply osc_param.video_margins to video
     windowcontrols = "auto",    -- whether to show window controls
     windowcontrols_alignment = "right", -- which side to show window controls on
+    windowcontrols_title = "${media-title}", -- same as title but for windowcontrols
     greenandgrumpy = false,     -- disable santa hat
     livemarkers = true,         -- update seekbar chapter markers on duration change
     chapters_osd = true,        -- whether to show chapters OSD on next/prev
@@ -350,6 +354,7 @@ local state = {
     input_enabled = true,
     showhide_enabled = false,
     windowcontrols_buttons = false,
+    windowcontrols_title = false,
     dmx_cache = 0,
     using_video_margins = false,
     border = true,
@@ -373,7 +378,7 @@ function kill_animation()
     state.anitype =  nil
 end
 
-function set_osd(res_x, res_y, text)
+function set_osd(res_x, res_y, text, z)
     if state.osd.res_x == res_x and
        state.osd.res_y == res_y and
        state.osd.data == text then
@@ -382,7 +387,7 @@ function set_osd(res_x, res_y, text)
     state.osd.res_x = res_x
     state.osd.res_y = res_y
     state.osd.data = text
-    state.osd.z = 1000
+    state.osd.z = z
     state.osd:update()
 end
 
@@ -505,7 +510,7 @@ function get_slider_value(element)
 end
 
 function countone(val)
-    if not (user_opts.iamaprogrammer) then
+    if not user_opts.iamaprogrammer then
         val = val + 1
     end
     return val
@@ -526,7 +531,7 @@ end
 
 function add_area(name, x1, y1, x2, y2)
     -- create area if needed
-    if (osc_param.areas[name] == nil) then
+    if osc_param.areas[name] == nil then
         osc_param.areas[name] = {}
     end
     table.insert(osc_param.areas[name], {x1=x1, y1=y1, x2=x2, y2=y2})
@@ -581,7 +586,7 @@ function update_tracklist()
     tracks_mpv = {}
     tracks_mpv.video, tracks_mpv.audio, tracks_mpv.sub = {}, {}, {}
     for n = 1, #tracktable do
-        if not (tracktable[n].type == "unknown") then
+        if tracktable[n].type ~= "unknown" then
             local type = tracktable[n].type
             local mpv_id = tonumber(tracktable[n].id)
 
@@ -604,9 +609,9 @@ function get_tracklist(type)
         for n = 1, #tracks_osc[type] do
             local track = tracks_osc[type][n]
             local lang, title, selected = "unknown", "", "○"
-            if not(track.lang == nil) then lang = track.lang end
-            if not(track.title == nil) then title = track.title end
-            if (track.id == tonumber(mp.get_property(type))) then
+            if track.lang ~= nil then lang = track.lang end
+            if track.title ~= nil then title = track.title end
+            if track.id == tonumber(mp.get_property(type)) then
                 selected = "●"
             end
             msg = msg.."\n"..selected.." "..n..": ["..lang.."] "..title
@@ -619,7 +624,7 @@ end
     --(+1 -> next, -1 -> previous)
 function set_track(type, next)
     local current_track_mpv, current_track_osc
-    if (mp.get_property(type) == "no") then
+    if mp.get_property(type) == "no" then
         current_track_osc = 0
     else
         current_track_mpv = tonumber(mp.get_property(type))
@@ -635,10 +640,10 @@ function set_track(type, next)
 
     mp.commandv("set", type, new_track_mpv)
 
-        if (new_track_osc == 0) then
+    if new_track_osc == 0 then
         show_message(nicetypes[type] .. " Track: none")
     else
-        show_message(nicetypes[type]  .. " Track: "
+        show_message(nicetypes[type] .. " Track: "
             .. new_track_osc .. "/" .. #tracks_osc[type]
             .. " [".. (tracks_osc[type][new_track_osc].lang or "unknown") .."] "
             .. (tracks_osc[type][new_track_osc].title or ""))
@@ -661,7 +666,7 @@ end
 function window_controls_enabled()
     val = user_opts.windowcontrols
     if val == "auto" then
-        return not state.border
+        return not (state.border and state.title_bar)
     else
         return val ~= "no"
     end
@@ -682,7 +687,7 @@ function prepare_elements()
     -- remove elements without layout or invisible
     local elements2 = {}
     for n, element in pairs(elements) do
-        if not (element.layout == nil) and (element.visible) then
+        if element.layout ~= nil and element.visible then
             table.insert(elements2, element)
         end
     end
@@ -717,14 +722,14 @@ function prepare_elements()
         local static_ass = assdraw.ass_new()
 
 
-        if (element.type == "box") then
+        if element.type == "box" then
             --draw box
             static_ass:draw_start()
             ass_draw_rr_h_cw(static_ass, 0, 0, elem_geo.w, elem_geo.h,
                              element.layout.box.radius, element.layout.box.hexagon)
             static_ass:draw_stop()
 
-        elseif (element.type == "slider") then
+        elseif element.type == "slider" then
             --draw static slider parts
 
             local r1 = 0
@@ -734,13 +739,13 @@ function prepare_elements()
             local foV = slider_lo.border + slider_lo.gap
 
             -- calculate positions of min and max points
-            if (slider_lo.stype ~= "bar") then
+            if slider_lo.stype ~= "bar" then
                 r1 = elem_geo.h / 2
                 element.slider.min.ele_pos = elem_geo.h / 2
                 element.slider.max.ele_pos = elem_geo.w - (elem_geo.h / 2)
-                if (slider_lo.stype == "diamond") then
+                if slider_lo.stype == "diamond" then
                     r2 = (elem_geo.h - 2 * slider_lo.border) / 2
-                elseif (slider_lo.stype == "knob") then
+                elseif slider_lo.stype == "knob" then
                     r2 = r1
                 end
             else
@@ -768,45 +773,45 @@ function prepare_elements()
                               r2, slider_lo.stype == "diamond")
 
             -- marker nibbles
-            if not (element.slider.markerF == nil) and (slider_lo.gap > 0) then
+            if element.slider.markerF ~= nil and slider_lo.gap > 0 then
                 local markers = element.slider.markerF()
                 for _,marker in pairs(markers) do
-                    if (marker > element.slider.min.value) and
-                        (marker < element.slider.max.value) then
+                    if marker > element.slider.min.value and
+                        marker < element.slider.max.value then
 
                         local s = get_slider_ele_pos_for(element, marker)
 
-                        if (slider_lo.gap > 1) then -- draw triangles
+                        if slider_lo.gap > 1 then -- draw triangles
 
                             local a = slider_lo.gap / 0.5 --0.866
 
                             --top
-                            if (slider_lo.nibbles_top) then
-                                static_ass:move_to(s - (a/2), slider_lo.border)
-                                static_ass:line_to(s + (a/2), slider_lo.border)
+                            if slider_lo.nibbles_top then
+                                static_ass:move_to(s - (a / 2), slider_lo.border)
+                                static_ass:line_to(s + (a / 2), slider_lo.border)
                                 static_ass:line_to(s, foV)
                             end
 
                             --bottom
-                            if (slider_lo.nibbles_bottom) then
-                                static_ass:move_to(s - (a/2),
+                            if slider_lo.nibbles_bottom then
+                                static_ass:move_to(s - (a / 2),
                                     elem_geo.h - slider_lo.border)
                                 static_ass:line_to(s,
                                     elem_geo.h - foV)
-                                static_ass:line_to(s + (a/2),
+                                static_ass:line_to(s + (a / 2),
                                     elem_geo.h - slider_lo.border)
                             end
 
                         else -- draw 2x1px nibbles
 
                             --top
-                            if (slider_lo.nibbles_top) then
+                            if slider_lo.nibbles_top then
                                 static_ass:rect_cw(s - 1, slider_lo.border,
                                     s + 1, slider_lo.border + slider_lo.gap);
                             end
 
                             --bottom
-                            if (slider_lo.nibbles_bottom) then
+                            if slider_lo.nibbles_bottom then
                                 static_ass:rect_cw(s - 1,
                                     elem_geo.h -slider_lo.border -slider_lo.gap,
                                     s + 1, elem_geo.h - slider_lo.border);
@@ -822,7 +827,7 @@ function prepare_elements()
 
         -- if the element is supposed to be disabled,
         -- style it accordingly and kill the eventresponders
-        if not (element.enabled) then
+        if not element.enabled then
             element.layout.alpha[1] = 136
             element.eventresponder = nil
         end
@@ -873,18 +878,18 @@ function render_elements(master_ass)
         if element.eventresponder and (state.active_element == n) then
 
             -- run render event functions
-            if not (element.eventresponder.render == nil) then
+            if element.eventresponder.render ~= nil then
                 element.eventresponder.render(element)
             end
 
             if mouse_hit(element) then
                 -- mouse down styling
-                if (element.styledown) then
+                if element.styledown then
                     style_ass:append(osc_styles.elementDown)
                 end
 
-                if (element.softrepeat) and (state.mouse_down_counter >= 15
-                    and state.mouse_down_counter % 5 == 0) then
+                if element.softrepeat and state.mouse_down_counter >= 15
+                    and state.mouse_down_counter % 5 == 0 then
 
                     element.eventresponder[state.active_event_source.."_down"](element)
                 end
@@ -897,11 +902,11 @@ function render_elements(master_ass)
 
         elem_ass:merge(style_ass)
 
-        if not (element.type == "button") then
+        if element.type ~= "button" then
             elem_ass:merge(element.static_ass)
         end
 
-        if (element.type == "slider") then
+        if element.type == "slider" then
 
             local slider_lo = element.layout.slider
             local elem_geo = element.layout.geometry
@@ -1019,8 +1024,7 @@ function render_elements(master_ass)
             elem_ass:draw_stop()
 
             -- add tooltip
-            if not (element.slider.tooltipF == nil) then
-
+            if element.slider.tooltipF ~= nil then
                 if mouse_hit(element) then
                     local sliderpos = get_slider_value(element)
                     local tooltiplabel = element.slider.tooltipF(sliderpos)
@@ -1029,21 +1033,21 @@ function render_elements(master_ass)
 
                     local ty
 
-                    if (an == 2) then
+                    if an == 2 then
                         ty = element.hitbox.y1 - slider_lo.border
                     else
-                        ty = element.hitbox.y1 + elem_geo.h/2
+                        ty = element.hitbox.y1 + elem_geo.h / 2
                     end
 
                     local tx = get_virt_mouse_pos()
-                    if (slider_lo.adjust_tooltip) then
-                        if (an == 2) then
-                            if (sliderpos < (s_min + 3)) then
+                    if slider_lo.adjust_tooltip then
+                        if an == 2 then
+                            if sliderpos < (s_min + 3) then
                                 an = an - 1
-                            elseif (sliderpos > (s_max - 3)) then
+                            elseif sliderpos > (s_max - 3) then
                                 an = an + 1
                             end
-                        elseif (sliderpos > (s_max-s_min)/2) then
+                        elseif sliderpos > (s_max+s_min) / 2 then
                             an = an + 1
                             tx = tx - 5
                         else
@@ -1067,20 +1071,20 @@ function render_elements(master_ass)
                 end
             end
 
-        elseif (element.type == "button") then
+        elseif element.type == "button" then
 
             local buttontext
             if type(element.content) == "function" then
                 buttontext = element.content() -- function objects
-            elseif not (element.content == nil) then
+            elseif element.content ~= nil then
                 buttontext = element.content -- text objects
             end
 
             local maxchars = element.layout.button.maxchars
-            if not (maxchars == nil) and (#buttontext > maxchars) then
+            if maxchars ~= nil and #buttontext > maxchars then
                 local max_ratio = 1.25  -- up to 25% more chars while shrinking
                 local limit = math.max(0, math.floor(maxchars * max_ratio) - 3)
-                if (#buttontext > limit) then
+                if #buttontext > limit then
                     while (#buttontext > limit) do
                         buttontext = buttontext:gsub(".[\128-\191]*$", "")
                     end
@@ -1182,10 +1186,7 @@ function show_message(text, duration)
     -- may slow down massively on huge input
     text = string.sub(text, 0, 4000)
 
-    -- replace actual linebreaks with ASS linebreaks
-    text = string.gsub(text, "\n", "\\N")
-
-    state.message_text = text
+    state.message_text = mp.command_native({"escape-ass", text})
 
     if not state.message_hide_timer then
         state.message_hide_timer = mp.add_timeout(0, request_tick)
@@ -1236,7 +1237,7 @@ function new_element(name, type)
     elements[name].styledown = (type == "button")
     elements[name].state = {}
 
-    if (type == "slider") then
+    if type == "slider" then
         elements[name].slider = {min = {value = 0}, max = {value = 100}}
     end
 
@@ -1245,7 +1246,7 @@ function new_element(name, type)
 end
 
 function add_layout(name)
-    if not (elements[name] == nil) then
+    if elements[name] ~= nil then
         -- new layout
         elements[name].layout = {}
 
@@ -1253,11 +1254,11 @@ function add_layout(name)
         elements[name].layout.layer = 50
         elements[name].layout.alpha = {[1] = 0, [2] = 255, [3] = 255, [4] = 255}
 
-        if (elements[name].type == "button") then
+        if elements[name].type == "button" then
             elements[name].layout.button = {
                 maxchars = nil,
             }
-        elseif (elements[name].type == "slider") then
+        elseif elements[name].type == "slider" then
             -- slider defaults
             elements[name].layout.slider = {
                 border = 1,
@@ -1270,7 +1271,7 @@ function add_layout(name)
                 tooltip_an = 2,
                 alpha = {[1] = 0, [2] = 255, [3] = 88, [4] = 255},
             }
-        elseif (elements[name].type == "box") then
+        elseif elements[name].type == "box" then
             elements[name].layout.box = {radius = 0, hexagon = false}
         end
 
@@ -1388,10 +1389,9 @@ function window_controls(topbar)
     -- Window Title
     ne = new_element("wctitle", "button")
     ne.content = function ()
-        local title = mp.command_native({"expand-text", user_opts.title})
-        -- escape ASS, and strip newlines and trailing slashes
-        title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
-        return not (title == "") and title or "mpv"
+        local title = mp.command_native({"expand-text", user_opts.windowcontrols_title})
+        title = title:gsub("\n", " ")
+        return title ~= "" and mp.command_native({"escape-ass", title}) or "mpv"
     end
     local left_pad = 5
     local right_pad = 10
@@ -1425,8 +1425,8 @@ layouts["box"] = function ()
     }
 
     -- make sure the OSC actually fits into the video
-    if (osc_param.playresx < (osc_geo.w + (2 * osc_geo.p))) then
-        osc_param.playresy = (osc_geo.w+(2*osc_geo.p))/osc_param.display_aspect
+    if osc_param.playresx < (osc_geo.w + (2 * osc_geo.p)) then
+        osc_param.playresy = (osc_geo.w + (2 * osc_geo.p)) / osc_param.display_aspect
         osc_param.playresx = osc_param.playresy * osc_param.display_aspect
     end
 
@@ -1544,11 +1544,6 @@ layouts["box"] = function ()
         {x = posX - pos_offsetX, y = bigbtnrowY, an = 7, w = 70, h = 18}
     lo.style = osc_styles.smallButtonsL
 
-    lo = add_layout("tog_forced_only")
-    lo.geometry =
-        {x = posX - pos_offsetX + 70, y = bigbtnrowY - 1, an = 7, w = 25, h = 18}
-    lo.style = osc_styles.smallButtonsL
-
     lo = add_layout("tog_fs")
     lo.geometry =
         {x = posX+pos_offsetX - 25, y = bigbtnrowY, an = 4, w = 25, h = 25}
@@ -1605,8 +1600,8 @@ layouts["slimbox"] = function ()
     }
 
     -- make sure the OSC actually fits into the video
-    if (osc_param.playresx < (osc_geo.w)) then
-        osc_param.playresy = (osc_geo.w)/osc_param.display_aspect
+    if osc_param.playresx < (osc_geo.w) then
+        osc_param.playresy = (osc_geo.w) / osc_param.display_aspect
         osc_param.playresx = osc_param.playresy * osc_param.display_aspect
     end
 
@@ -1657,7 +1652,7 @@ layouts["slimbox"] = function ()
     lo.style = osc_styles.box
     lo.alpha[1] = user_opts.boxalpha
     lo.alpha[3] = 0
-    if not (user_opts["seekbarstyle"] == "bar") then
+    if user_opts["seekbarstyle"] ~= "bar" then
         lo.box.radius = osc_geo.r
         lo.box.hexagon = user_opts["seekbarstyle"] == "diamond"
     end
@@ -1739,7 +1734,7 @@ function bar_layout(direction)
         padwc_r = window_control_box_width
     end
 
-    if ((osc_param.display_aspect > 0) and (osc_param.playresx < minW)) then
+    if osc_param.display_aspect > 0 and osc_param.playresx < minW then
         osc_param.playresy = minW / osc_param.display_aspect
         osc_param.playresx = osc_param.playresy * osc_param.display_aspect
     end
@@ -1855,12 +1850,6 @@ function bar_layout(direction)
     lo.geometry = geo
     lo.style = osc_styles.smallButtonsBar
 
-    -- Forced-subs-only button
-    geo = { x = geo.x - geo.w - padX, y = geo.y, an = geo.an, w = geo.w, h = geo.h }
-    lo = add_layout("tog_forced_only")
-    lo.geometry = geo
-    lo.style = osc_styles.smallButtonsBar
-
     -- Track selection buttons
     geo = { x = geo.x - tsW - padX, y = geo.y, an = geo.an, w = tsW, h = geo.h }
     lo = add_layout("cy_sub")
@@ -1894,7 +1883,7 @@ function bar_layout(direction)
     lo.style = osc_styles.timecodesBar
     lo.alpha[1] =
         math.min(255, user_opts.boxalpha + (255 - user_opts.boxalpha)*0.8)
-    if not (user_opts["seekbarstyle"] == "bar") then
+    if user_opts["seekbarstyle"] ~= "bar" then
         lo.box.radius = geo.h / 2
         lo.box.hexagon = user_opts["seekbarstyle"] == "diamond"
     end
@@ -1989,7 +1978,7 @@ function osc_init()
     local display_w, display_h, display_aspect = mp.get_osd_size()
     local scale = 1
 
-    if (mp.get_property("video") == "no") then -- dummy/forced window
+    if mp.get_property("video") == "no" then -- dummy/forced window
         scale = user_opts.scaleforcedwindow
     elseif state.fullscreen then
         scale = user_opts.scalefullscreen
@@ -2003,7 +1992,7 @@ function osc_init()
         osc_param.unscaled_y = display_h
     end
     osc_param.playresy = osc_param.unscaled_y / scale
-    if (display_aspect > 0) then
+    if display_aspect > 0 then
         osc_param.display_aspect = display_aspect
     end
     osc_param.playresx = osc_param.playresy * osc_param.display_aspect
@@ -2030,14 +2019,13 @@ function osc_init()
     ne.content = function ()
         local title = state.forced_title or
                       mp.command_native({"expand-text", user_opts.title})
-        -- escape ASS, and strip newlines and trailing slashes
-        title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
-        return not (title == "") and title or "mpv"
+        title = title:gsub("\n", " ")
+        return title ~= "" and mp.command_native({"escape-ass", title}) or "mpv"
     end
 
     ne.eventresponder["mbtn_left_up"] = function ()
         local title = mp.get_property_osd("media-title")
-        if (have_pl) then
+        if have_pl then
             title = string.format("[%d/%d] %s", countone(pl_pos - 1),
                                   pl_count, title)
         end
@@ -2166,7 +2154,7 @@ function osc_init()
     ne.enabled = (#tracks_osc.audio > 0)
     ne.content = function ()
         local aid = "–"
-        if not (get_track("audio") == 0) then
+        if get_track("audio") ~= 0 then
             aid = get_track("audio")
         end
         return ("\238\132\134" .. osc_styles.smallButtonsLlabel
@@ -2179,13 +2167,20 @@ function osc_init()
     ne.eventresponder["shift+mbtn_left_down"] =
         function () show_message(get_tracklist("audio"), 2) end
 
+    if user_opts.scrollcontrols then
+        ne.eventresponder["wheel_down_press"] =
+            function () set_track("audio", 1) end
+        ne.eventresponder["wheel_up_press"] =
+            function () set_track("audio", -1) end
+    end
+
     --cy_sub
     ne = new_element("cy_sub", "button")
 
     ne.enabled = (#tracks_osc.sub > 0)
     ne.content = function ()
         local sid = "–"
-        if not (get_track("sub") == 0) then
+        if get_track("sub") ~= 0 then
             sid = get_track("sub")
         end
         return ("\238\132\135" .. osc_styles.smallButtonsLlabel
@@ -2198,36 +2193,17 @@ function osc_init()
     ne.eventresponder["shift+mbtn_left_down"] =
         function () show_message(get_tracklist("sub"), 2) end
 
-    -- tog_forced_only
-    local tog_forced_only = new_element("tog_forced_only", "button")
-
-    ne = tog_forced_only
-    ne.content = function ()
-        sub_codec = mp.get_property("current-tracks/sub/codec")
-        if (sub_codec ~= "dvd_subtitle" and sub_codec ~= "hdmv_pgs_subtitle") then
-            return ""
-        end
-        local base_a = tog_forced_only.layout.alpha
-        local alpha = base_a[1]
-        if not mp.get_property_bool("sub-forced-only-cur") then
-            alpha = 255
-        end
-        local ret = assdraw.ass_new()
-        ret:append("[")
-        ass_append_alpha(ret, {[1] = alpha, [2] = 1, [3] = base_a[3], [4] = base_a[4]}, 0)
-        ret:append("F")
-        ass_append_alpha(ret, base_a, 0)
-        ret:append("]")
-        return ret.text
-    end
-    ne.eventresponder["mbtn_left_up"] = function ()
-        mp.set_property_bool("sub-forced-only", (not mp.get_property_bool("sub-forced-only-cur")))
+    if user_opts.scrollcontrols then
+        ne.eventresponder["wheel_down_press"] =
+            function () set_track("sub", 1) end
+        ne.eventresponder["wheel_up_press"] =
+            function () set_track("sub", -1) end
     end
 
     --tog_fs
     ne = new_element("tog_fs", "button")
     ne.content = function ()
-        if (state.fullscreen) then
+        if state.fullscreen then
             return ("\238\132\137")
         else
             return ("\238\132\136")
@@ -2239,11 +2215,11 @@ function osc_init()
     --seekbar
     ne = new_element("seekbar", "slider")
 
-    ne.enabled = not (mp.get_property("percent-pos") == nil)
+    ne.enabled = mp.get_property("percent-pos") ~= nil
     state.slider_element = ne.enabled and ne or nil  -- used for forced_title
     ne.slider.markerF = function ()
         local duration = mp.get_property_number("duration", nil)
-        if not (duration == nil) then
+        if duration ~= nil then
             local chapters = mp.get_property_native("chapter-list", {})
             local markers = {}
             for n = 1, #chapters do
@@ -2258,7 +2234,7 @@ function osc_init()
         function () return mp.get_property_number("percent-pos", nil) end
     ne.slider.tooltipF = function (pos)
         local duration = mp.get_property_number("duration", nil)
-        if not ((duration == nil) or (pos == nil)) then
+        if duration ~= nil and pos ~= nil then
             possec = duration * (pos / 100)
             return mp.format_time(possec)
         else
@@ -2274,7 +2250,7 @@ function osc_init()
             return nil
         end
         local duration = mp.get_property_number("duration", nil)
-        if (duration == nil) or duration <= 0 then
+        if duration == nil or duration <= 0 then
             return nil
         end
         local ranges = cache_state["seekable-ranges"]
@@ -2296,8 +2272,8 @@ function osc_init()
             -- sent when the user is done seeking, so we need to throw away
             -- identical seeks
             local seekto = get_slider_value(element)
-            if (element.state.lastseek == nil) or
-                (not (element.state.lastseek == seekto)) then
+            if element.state.lastseek == nil or
+                element.state.lastseek ~= seekto then
                     local flags = "absolute-percent"
                     if not user_opts.seekbarkeyframes then
                         flags = flags .. "+exact"
@@ -2313,12 +2289,19 @@ function osc_init()
     ne.eventresponder["reset"] =
         function (element) element.state.lastseek = nil end
 
+    if user_opts.scrollcontrols then
+        ne.eventresponder["wheel_up_press"] =
+            function () mp.commandv("osd-auto", "seek",  10) end
+        ne.eventresponder["wheel_down_press"] =
+            function () mp.commandv("osd-auto", "seek", -10) end
+    end
+
 
     -- tc_left (current pos)
     ne = new_element("tc_left", "button")
 
     ne.content = function ()
-        if (state.tc_ms) then
+        if state.tc_ms then
             return (mp.get_property_osd("playback-time/full"))
         else
             return (mp.get_property_osd("playback-time"))
@@ -2334,12 +2317,14 @@ function osc_init()
 
     ne.visible = (mp.get_property_number("duration", 0) > 0)
     ne.content = function ()
-        if (state.rightTC_trem) then
+        if state.rightTC_trem then
             local minus = user_opts.unicodeminus and UNICODE_MINUS or "-"
+            local property = user_opts.remaining_playtime and "playtime-remaining"
+                                                           or "time-remaining"
             if state.tc_ms then
-                return (minus..mp.get_property_osd("playtime-remaining/full"))
+                return (minus..mp.get_property_osd(property .. "/full"))
             else
-                return (minus..mp.get_property_osd("playtime-remaining"))
+                return (minus..mp.get_property_osd(property))
             end
         else
             if state.tc_ms then
@@ -2393,10 +2378,12 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("cycle", "mute") end
 
-    ne.eventresponder["wheel_up_press"] =
-        function () mp.commandv("osd-auto", "add", "volume", 5) end
-    ne.eventresponder["wheel_down_press"] =
-        function () mp.commandv("osd-auto", "add", "volume", -5) end
+    if user_opts.scrollcontrols then
+        ne.eventresponder["wheel_up_press"] =
+            function () mp.commandv("osd-auto", "add", "volume", 5) end
+        ne.eventresponder["wheel_down_press"] =
+            function () mp.commandv("osd-auto", "add", "volume", -5) end
+    end
 
 
     -- load layout
@@ -2426,7 +2413,7 @@ function update_margins()
     local margins = osc_param.video_margins
 
     -- Don't use margins if it's visible only temporarily.
-    if (not state.osc_visible) or (get_hidetimeout() >= 0) or
+    if not state.osc_visible or get_hidetimeout() >= 0 or
        (state.fullscreen and not user_opts.showfullscreen) or
        (not state.fullscreen and not user_opts.showwindowed)
     then
@@ -2448,7 +2435,7 @@ function update_margins()
         if not margins_used then
             for _, opt in ipairs(margins_opts) do
                 local v = margins[opt[1]]
-                if (v ~= 0) or state.using_video_margins then
+                if v ~= 0 or state.using_video_margins then
                     mp.set_property_number(opt[2], v)
                     state.using_video_margins = true
                 end
@@ -2458,21 +2445,12 @@ function update_margins()
         reset_margins()
     end
 
-    if mp.del_property then
-        mp.set_property_native("user-data/osc/margins", margins)
-    else
-        utils.shared_script_property_set("osc-margins",
-            string.format("%f,%f,%f,%f", margins.l, margins.r, margins.t, margins.b))
-    end
+    mp.set_property_native("user-data/osc/margins", margins)
 end
 
 function shutdown()
     reset_margins()
-    if mp.del_property then
-        mp.del_property("user-data/osc")
-    else
-        utils.shared_script_property_set("osc-margins", nil)
-    end
+    mp.del_property("user-data/osc")
 end
 
 --
@@ -2490,7 +2468,7 @@ function show_osc()
 
     osc_visible(true)
 
-    if (user_opts.fadeduration > 0) then
+    if user_opts.fadeduration > 0 then
         state.anitype = nil
     end
 end
@@ -2502,8 +2480,8 @@ function hide_osc()
         -- no-op and won't render again to remove the osc, so do that manually.
         state.osc_visible = false
         render_wipe()
-    elseif (user_opts.fadeduration > 0) then
-        if not(state.osc_visible == false) then
+    elseif user_opts.fadeduration > 0 then
+        if state.osc_visible then
             state.anitype = "out"
             request_tick()
         end
@@ -2585,8 +2563,8 @@ function render()
     local now = mp.get_time()
 
     -- check if display changed, if so request reinit
-    if not (state.mp_screen_sizeX == current_screen_sizeX
-        and state.mp_screen_sizeY == current_screen_sizeY) then
+    if state.mp_screen_sizeX ~= current_screen_sizeX
+        or state.mp_screen_sizeY ~= current_screen_sizeY then
 
         request_init_resize()
 
@@ -2616,27 +2594,27 @@ function render()
 
 
     -- fade animation
-    if not(state.anitype == nil) then
+    if state.anitype ~= nil then
 
-        if (state.anistart == nil) then
+        if state.anistart == nil then
             state.anistart = now
         end
 
-        if (now < state.anistart + (user_opts.fadeduration/1000)) then
+        if now < state.anistart + (user_opts.fadeduration / 1000) then
 
-            if (state.anitype == "in") then --fade in
+            if state.anitype == "in" then --fade in
                 osc_visible(true)
                 state.animation = scale_value(state.anistart,
-                    (state.anistart + (user_opts.fadeduration/1000)),
+                    (state.anistart + (user_opts.fadeduration / 1000)),
                     255, 0, now)
-            elseif (state.anitype == "out") then --fade out
+            elseif state.anitype == "out" then --fade out
                 state.animation = scale_value(state.anistart,
-                    (state.anistart + (user_opts.fadeduration/1000)),
+                    (state.anistart + (user_opts.fadeduration / 1000)),
                     0, 255, now)
             end
 
         else
-            if (state.anitype == "out") then
+            if state.anitype == "out" then
                 osc_visible(false)
             end
             kill_animation()
@@ -2674,7 +2652,7 @@ function render()
             state.input_enabled = state.osc_visible
         end
 
-        if (mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2)) then
+        if mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2) then
             mouse_over_osc = true
         end
     end
@@ -2693,7 +2671,7 @@ function render()
                 state.windowcontrols_buttons = state.osc_visible
             end
 
-            if (mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2)) then
+            if mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2) then
                 mouse_over_osc = true
             end
         end
@@ -2701,17 +2679,29 @@ function render()
 
     if osc_param.areas["window-controls-title"] then
         for _,cords in ipairs(osc_param.areas["window-controls-title"]) do
-            if (mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2)) then
+            if state.osc_visible then -- activate only when OSC is actually visible
+                set_virt_mouse_area(cords.x1, cords.y1, cords.x2, cords.y2, "window-controls-title")
+            end
+            if state.osc_visible ~= state.windowcontrols_title then
+                if state.osc_visible then
+                    mp.enable_key_bindings("window-controls-title", "allow-vo-dragging")
+                else
+                    mp.disable_key_bindings("window-controls-title", "allow-vo-dragging")
+                end
+                state.windowcontrols_title = state.osc_visible
+            end
+
+            if mouse_hit_coords(cords.x1, cords.y1, cords.x2, cords.y2) then
                 mouse_over_osc = true
             end
         end
     end
 
     -- autohide
-    if not (state.showtime == nil) and (get_hidetimeout() >= 0) then
-        local timeout = state.showtime + (get_hidetimeout()/1000) - now
+    if state.showtime ~= nil and get_hidetimeout() >= 0 then
+        local timeout = state.showtime + (get_hidetimeout() / 1000) - now
         if timeout <= 0 then
-            if (state.active_element == nil) and not (mouse_over_osc) then
+            if state.active_element == nil and not mouse_over_osc then
                 hide_osc()
             end
         else
@@ -2752,7 +2742,7 @@ function render()
 
     -- submit
     set_osd(osc_param.playresy * osc_param.display_aspect,
-            osc_param.playresy, ass.text)
+            osc_param.playresy, ass.text, 1000)
 end
 
 --
@@ -2816,8 +2806,8 @@ function process_event(source, what)
         state.mouse_in_window = true
 
         local mouseX, mouseY = get_virt_mouse_pos()
-        if (user_opts.minmousemove == 0) or
-            (not ((state.last_mouseX == nil) or (state.last_mouseY == nil)) and
+        if user_opts.minmousemove == 0 or
+            ((state.last_mouseX ~= nil and state.last_mouseY ~= nil) and
                 ((math.abs(mouseX - state.last_mouseX) >= user_opts.minmousemove)
                     or (math.abs(mouseY - state.last_mouseY) >= user_opts.minmousemove)
                 )
@@ -2869,9 +2859,9 @@ function tick()
         state.marginsREQ = false
     end
 
-    if (not state.enabled) then return end
+    if not state.enabled then return end
 
-    if (state.idle) then
+    if state.idle then
 
         -- render idle message
         msg.trace("idle message")
@@ -2908,7 +2898,7 @@ function tick()
             ass:an(8)
             ass:append("Drop files or URLs to play here.")
         end
-        set_osd(display_w, display_h, ass.text)
+        set_osd(display_w, display_h, ass.text, -1000)
 
         if state.showhide_enabled then
             mp.disable_key_bindings("showhide")
@@ -2917,7 +2907,7 @@ function tick()
         end
 
 
-    elseif (state.fullscreen and user_opts.showfullscreen)
+    elseif state.fullscreen and user_opts.showfullscreen
         or (not state.fullscreen and user_opts.showwindowed) then
 
         -- render the OSC
@@ -2980,9 +2970,9 @@ function update_duration_watch()
                        (mp.get_property_number("chapters", 0) or 0) > 0 and
                        true or false  -- ensure it's a boolean
 
-    if (want_watch ~= duration_watched) then
+    if want_watch ~= duration_watched then
         if want_watch then
-            mp.observe_property("duration", nil, on_duration)
+            mp.observe_property("duration", "native", on_duration)
         else
             mp.unobserve_property(on_duration)
         end
@@ -3010,8 +3000,8 @@ update_duration_watch()
 
 mp.register_event("shutdown", shutdown)
 mp.register_event("start-file", request_init)
-mp.observe_property("track-list", nil, request_init)
-mp.observe_property("playlist", nil, request_init)
+mp.observe_property("track-list", "native", request_init)
+mp.observe_property("playlist", "native", request_init)
 mp.observe_property("chapter-list", "native", function(_, list)
     list = list or {}  -- safety, shouldn't return nil
     table.sort(list, function(a, b) return a.time < b.time end)
@@ -3045,6 +3035,12 @@ mp.observe_property("fullscreen", "bool",
 mp.observe_property("border", "bool",
     function(name, val)
         state.border = val
+        request_init_resize()
+    end
+)
+mp.observe_property("title-bar", "bool",
+    function(name, val)
+        state.title_bar = val
         request_init_resize()
     end
 )
@@ -3154,11 +3150,6 @@ function visibility_mode(mode, no_osd)
     end
 
     user_opts.visibility = mode
-    if mp.del_property then
-        mp.set_property_native("user-data/osc/visibility", mode)
-    else
-        utils.shared_script_property_set("osc-visibility", mode)
-    end
     mp.set_property_native("user-data/osc/visibility", mode)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
@@ -3191,11 +3182,7 @@ function idlescreen_visibility(mode, no_osd)
         user_opts.idlescreen = false
     end
 
-    if mp.del_property then
-        mp.set_property_native("user-data/osc/idlescreen", user_opts.idlescreen)
-    else
-        utils.shared_script_property_set("osc-idlescreen", mode)
-    end
+    mp.set_property_native("user-data/osc/idlescreen", user_opts.idlescreen)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
         mp.osd_message("OSC logo visibility: " .. tostring(mode))
@@ -3212,3 +3199,4 @@ mp.register_script_message("osc-idlescreen", idlescreen_visibility)
 
 set_virt_mouse_area(0, 0, 0, 0, "input")
 set_virt_mouse_area(0, 0, 0, 0, "window-controls")
+set_virt_mouse_area(0, 0, 0, 0, "window-controls-title")

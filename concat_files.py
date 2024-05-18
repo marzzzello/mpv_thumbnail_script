@@ -15,15 +15,15 @@ parser = argparse.ArgumentParser(
     description="Concatenate files to a target file, optionally writing target-changes back to source files"
 )
 
-parser.add_argument('config_file', metavar='CONFIG_FILE', help='Configuration file for concat')
-parser.add_argument('-o', '--output', metavar='OUTPUT', help='Override output filename')
+parser.add_argument("config_file", metavar="CONFIG_FILE", help="Configuration file for concat")
+parser.add_argument("-o", "--output", metavar="OUTPUT", help="Override output filename")
 parser.add_argument(
-    '-w',
-    '--watch',
-    action='store_true',
-    help='Watch files for any changes and map them between the target and source files',
+    "-w",
+    "--watch",
+    action="store_true",
+    help="Watch files for any changes and map them between the target and source files",
 )
-parser.add_argument('-r', '--release', action='store_true', help='Build a version without the section dividers')
+parser.add_argument("-r", "--release", action="store_true", help="Build a version without the section dividers")
 
 
 class FileWatcher(object):
@@ -56,18 +56,18 @@ class FileSection(object):
     def __repr__(self):
         hash_part = binascii.hexlify(self.hash).decode()[:7]
         if self.old_hash:
-            hash_part += ' (' + binascii.hexlify(self.old_hash).decode()[:7] + ')'
+            hash_part += " (" + binascii.hexlify(self.old_hash).decode()[:7] + ")"
 
-        return '<{} \'{}\' {}b {}>'.format(self.__class__.__name__, self.filename, len(self.content), hash_part)
+        return "<{} '{}' {}b {}>".format(self.__class__.__name__, self.filename, len(self.content), hash_part)
 
     def recalculate_hash(self):
-        self.hash = hashlib.sha256(self.content.encode('utf-8')).digest()
+        self.hash = hashlib.sha256(self.content.encode("utf-8")).digest()
         return self.hash
 
     @classmethod
     def from_file(cls, filename):
         modified_time = os.path.getmtime(filename)
-        with open(filename, 'r', encoding='utf-8') as in_file:
+        with open(filename, "r", encoding="utf-8") as in_file:
             content = in_file.read()
 
         return cls(filename=filename, content=content, modified=modified_time)
@@ -75,29 +75,29 @@ class FileSection(object):
 
 
 class Concatter(object):
-    SECTION_REGEX_BASE = r'FileConcat-([SE]) (.+?) HASH:(.+?)'
-    SECTION_HEADER_FORMAT_BASE = 'FileConcat-{kind} {filename} HASH:{hash}'
+    SECTION_REGEX_BASE = r"FileConcat-([SE]) (.+?) HASH:(.+?)"
+    SECTION_HEADER_FORMAT_BASE = "FileConcat-{kind} {filename} HASH:{hash}"
 
-    def __init__(self, config, working_directory=''):
-        self.output_filename = config.get('output', 'output.txt')
-        self.file_list = config.get('files', [])
-        self.section_header_prefix = config.get('header_prefix', '')
-        self.section_header_suffix = config.get('header_suffix', '')
+    def __init__(self, config, working_directory=""):
+        self.output_filename = config.get("output", "output.txt")
+        self.file_list = config.get("files", [])
+        self.section_header_prefix = config.get("header_prefix", "")
+        self.section_header_suffix = config.get("header_suffix", "")
         self.working_directory = working_directory
 
         self.version_metafile = None
 
-        self.newline = '\n'
+        self.newline = "\n"
 
         self.section_header_format = (
             self.section_header_prefix + self.SECTION_HEADER_FORMAT_BASE + self.section_header_suffix
         )
         self.section_header_regex = re.compile(
-            r'^'
+            r"^"
             + re.escape(self.section_header_prefix)
             + self.SECTION_REGEX_BASE
             + re.escape(self.section_header_suffix)
-            + r'$'
+            + r"$"
         )
 
     def split_output_file(self):
@@ -106,21 +106,21 @@ class Concatter(object):
             return file_sections
 
         modified_time = os.path.getmtime(self.output_filename)
-        with open(self.output_filename, 'r', encoding='utf-8') as in_file:
+        with open(self.output_filename, "r", encoding="utf-8") as in_file:
             current_section = None
             section_lines = []
 
             for line in in_file:
                 header_match = self.section_header_regex.match(line)
                 if header_match:
-                    is_start = header_match.group(1) == 'S'
+                    is_start = header_match.group(1) == "S"
                     section_filename = header_match.group(2)
                     section_hash = binascii.unhexlify(header_match.group(3))
 
                     if is_start and current_section is None:
                         current_section = FileSection(section_filename, None, modified_time)
                     elif not is_start and current_section:
-                        current_section.content = ''.join(section_lines)
+                        current_section.content = "".join(section_lines)
                         current_section.recalculate_hash()
                         current_section.old_hash = section_hash
 
@@ -132,7 +132,7 @@ class Concatter(object):
                     section_lines.append(line)
 
             if current_section is not None:
-                raise Exception('Missing file end marker! For ' + current_section.filename)
+                raise Exception("Missing file end marker! For " + current_section.filename)
 
         return file_sections
 
@@ -141,7 +141,7 @@ class Concatter(object):
 
         for filename in self.file_list:
             # The version metafile
-            if filename == '<version>':
+            if filename == "<version>":
                 file_section = self.version_metafile
             else:
                 file_path = os.path.join(self.working_directory, filename)
@@ -163,18 +163,18 @@ class Concatter(object):
         return file_sections
 
     def concatenate_file_sections(self, file_sections, insert_section_headers=True):
-        with open(self.output_filename, 'w', newline='\n', encoding='utf-8') as out_file:
+        with open(self.output_filename, "w", newline="\n", encoding="utf-8") as out_file:
             for file_section in file_sections:
                 if insert_section_headers:
                     section_hash = binascii.hexlify(file_section.recalculate_hash()).decode()
 
                     out_file.write(
-                        self.section_header_format.format(kind='S', filename=file_section.filename, hash=section_hash)
+                        self.section_header_format.format(kind="S", filename=file_section.filename, hash=section_hash)
                         + self.newline
                     )
                     out_file.write(file_section.content)
                     out_file.write(
-                        self.section_header_format.format(kind='E', filename=file_section.filename, hash=section_hash)
+                        self.section_header_format.format(kind="E", filename=file_section.filename, hash=section_hash)
                         + self.newline
                     )
                 else:
@@ -190,13 +190,13 @@ class Concatter(object):
 
             # Backup target file if it exists
             if os.path.exists(file_path):
-                bak_filename = file_path + '.bak'
+                bak_filename = file_path + ".bak"
                 if os.path.exists(bak_filename):
                     os.remove(bak_filename)
                 os.rename(file_path, bak_filename)
 
             # Write contents
-            with open(file_path, 'w', newline='\n', encoding='utf-8') as out_file:
+            with open(file_path, "w", newline="\n", encoding="utf-8") as out_file:
                 out_file.write(file_section.content)
 
     def _map_sections(self, source_sections, target_sections):
@@ -255,25 +255,25 @@ class Concatter(object):
 
 
 def _create_version_metafile(config, config_dirname):
-    repo_dir = os.path.join(config_dirname, config.get('repo_dir', ''))
+    repo_dir = os.path.join(config_dirname, config.get("repo_dir", ""))
     try:
         git_branch = (
             subprocess.check_output(
-                ['git', '-C', repo_dir, 'symbolic-ref', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL
+                ["git", "-C", repo_dir, "symbolic-ref", "--short", "-q", "HEAD"], stderr=subprocess.DEVNULL
             )
             .decode()
             .strip()
         )
         git_commit = (
             subprocess.check_output(
-                ['git', '-C', repo_dir, 'rev-parse', '--short', '-q', 'HEAD'], stderr=subprocess.DEVNULL
+                ["git", "-C", repo_dir, "rev-parse", "--short", "-q", "HEAD"], stderr=subprocess.DEVNULL
             )
             .decode()
             .strip()
         )
         git_tag = (
             subprocess.check_output(
-                ['git', '-C', repo_dir, 'describe', '--tags', '--abbrev=0'], stderr=subprocess.DEVNULL
+                ["git", "-C", repo_dir, "describe", "--tags", "--abbrev=0"], stderr=subprocess.DEVNULL
             )
             .decode()
             .strip()
@@ -284,73 +284,73 @@ def _create_version_metafile(config, config_dirname):
         git_tag = None
 
     if not git_branch:
-        git_branch = 'unknown'
+        git_branch = "unknown"
 
     if git_commit:
         git_commit_short = git_commit[:7]
     else:
-        git_commit = git_commit_short = 'unknown'
+        git_commit = git_commit_short = "unknown"
 
     if not git_tag:
-        git_tag = 'unknown'
+        git_tag = "unknown"
 
     template_data = {
-        'version': git_tag,
-        'branch': git_branch,
-        'commit': git_commit,
-        'commit_short': git_commit_short,
-        'now': datetime.datetime.now(),
-        'utc_now': datetime.datetime.utcnow(),
+        "version": git_tag,
+        "branch": git_branch,
+        "commit": git_commit,
+        "commit_short": git_commit_short,
+        "now": datetime.datetime.now(),
+        "utc_now": datetime.datetime.now(datetime.UTC),
     }
 
-    version_template_file = config.get('version_template_file')
+    version_template_file = config.get("version_template_file")
     if version_template_file:
-        with open(os.path.join(config_dirname, version_template_file), 'r') as in_file:
+        with open(os.path.join(config_dirname, version_template_file), "r") as in_file:
             version_template = in_file.read()
     else:
-        version_template = ''
+        version_template = ""
 
-    version_metafile = FileSection('<version>', version_template.format(**template_data), 0)
+    version_metafile = FileSection("<version>", version_template.format(**template_data), 0)
     return version_metafile
 
 
 def _print_change_writes(source_to_target, target_to_source):
     if source_to_target:
-        print('SOURCE -> TARGET')
+        print("SOURCE -> TARGET")
         print(source_to_target)
     if target_to_source:
-        print('TARGET -> SOURCE')
+        print("TARGET -> SOURCE")
         print(target_to_source)
     if not source_to_target and not target_to_source:
-        print('No changes.')
+        print("No changes.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(args.config_file):
-        print('Unable to find given configuration file \'{}\''.format(args.config_file))
+        print("Unable to find given configuration file '{}'".format(args.config_file))
         exit(1)
 
     try:
-        with open(args.config_file, 'r') as in_file:
+        with open(args.config_file, "r") as in_file:
             config = json.load(in_file)
     except:
-        print('Unable to read given configuration file \'{}\''.format(args.config_file))
+        print("Unable to read given configuration file '{}'".format(args.config_file))
         exit(1)
 
     config_dirname = os.path.dirname(args.config_file)
     if args.output:
-        config['output'] = args.output
+        config["output"] = args.output
     else:
         # Make output be relative to config file
-        config['output'] = os.path.join(config_dirname, config['output'])
+        config["output"] = os.path.join(config_dirname, config["output"])
 
     concatter = Concatter(config, config_dirname)
     concatter.version_metafile = _create_version_metafile(config, config_dirname)
 
     if not concatter.file_list:
-        print('No files listed in configuration!')
+        print("No files listed in configuration!")
         exit(1)
 
     if not args.watch:
@@ -366,7 +366,7 @@ if __name__ == '__main__':
 
         file_watcher = FileWatcher(tracked_files_list)
 
-        print('Watching changes for', len(tracked_files_list), 'files...')
+        print("Watching changes for", len(tracked_files_list), "files...")
         while True:
             changes = file_watcher.get_changes()
 

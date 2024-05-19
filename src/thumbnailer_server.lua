@@ -26,7 +26,13 @@ function create_thumbnail_mpv(file_path, timestamp, size, output_path, options)
 
     local log_arg = "--log-file=" .. output_path .. ".log"
 
-    local mpv_path = ON_MAC and "/opt/homebrew/bin/mpv" or "mpv"
+    local mpv_path = nil
+    if ON_MAC then
+        local applications_path = "Applications/mpv.app/Contents/MacOS/"
+        mpv_path = find_on_paths("mpv", { applications_path, os.getenv("HOME") .. applications_path })
+    else mpv_path = "mpv"
+    end
+
 
     local mpv_command = skip_nil{
         mpv_path,
@@ -75,7 +81,12 @@ end
 function create_thumbnail_ffmpeg(file_path, timestamp, size, output_path, options)
     options = options or {}
 
-    local ffmpeg_path = ON_MAC and "/opt/homebrew/bin/ffmpeg" or "ffmpeg"
+    local ffmpeg_path = nil
+    if ON_MAC then
+        ffmpeg_path = find_on_paths("ffmpeg", { "/opt/homebrew/bin/", "/usr/local/bin/", os.getenv("HOME") .. "bin/" })
+    else ffmpeg_path = "mpv"
+    end
+
 
     local ffmpeg_command = {
         ffmpeg_path,

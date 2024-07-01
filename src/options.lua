@@ -14,7 +14,7 @@ local thumbnailer_options = {
     autogenerate = true,
 
     -- Only automatically thumbnail videos shorter than this (seconds)
-    autogenerate_max_duration = 3600, -- 1 hour
+    autogenerate_max_duration = 10800, -- 3 hours
 
     -- SHA1-sum filenames over this length
     -- It's nice to know what files the thumbnails are (hence directory names)

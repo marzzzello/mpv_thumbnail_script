@@ -78,8 +78,8 @@ autogenerate=yes
 # Only automatically thumbnail videos shorter than this (in seconds)
 # You will have to press T (or your own keybind) to enable the thumbnail previews
 # Set to 0 to disable the check, ie. thumbnail videos no matter how long they are
-# Defaults to 3600 (one hour)
-autogenerate_max_duration=3600
+# Defaults to 3 hours
+autogenerate_max_duration=10800
 
 # Use mpv to generate thumbnail even if ffmpeg is found in PATH
 # ffmpeg is slightly faster than mpv but lacks support for ordered chapters in MKVs,
